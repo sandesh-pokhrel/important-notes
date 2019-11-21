@@ -1,0 +1,319 @@
+SOAP (Simple Object Access Protocol) 
+	-> A document is available called WSDL (Web Service Description Language) which contains all the info about method signature etc. It is distributed to all the users
+		Uses XML as the format for data transfer
+
+REST (Representational State Transfer)
+	-> It is not a protocol, just a understanding on how things should be. It doesnot contains any sort of specifications
+	-> Like SOAP it might contains WADL, but not efficient like in SOAP
+	
+JAX-RS -->>
+	Prioritizes on following things	
+		Proper resource URIs
+		HTTP verbs
+		HTTP status codes
+		HTTP headers
+	jax-rs is simply a interface, annotations like structure which is in turn implemented by others framework like jersey, RESTeasy etc. 
+		
+	URIs -->>
+		Should be nowns not verbs . Example messages , not fetchMessages etc. Types of resource URIs
+		Instance Resource URIs - /messages/{messageId}
+						/messages/{messageId}/comments/{commentId}
+		Collection URIs - /messages
+							/comments   Returns the list of values..
+		Avoid using query params but use if necessarey
+			example
+				messages/{messageId}?offset=10&name=don
+				
+	HTTP Methods/Verbs -->>
+		GET - The parameters are sent as appended in the URLs, Simply gets the resource from the server
+		POST - Adding the resource
+		PUT - Update or change the resource
+		DELETE - Delete the resource specified
+		
+	METHOD IDEMPOTENCE -->>
+		Whether the methods are repeatable or not
+		GET, DELETE, PUT - repeatable (idempotent)
+		POST - non-repeatable (non-idempotent)
+	
+	REST RESPONSE -->>
+		JSON or XML
+		Status codes (404,200,501)
+		100s -> Informational
+		200s -> Success codes
+		300s -> Redirection codes 
+		400s -> Client error
+		500s -> Server error
+		
+	HATEOAS -->>
+		Hypermedia as The Engine Of Application State
+		Helps providing other useful URIs looking at the client's request 
+		The hateoas concept
+			i.e, Return link for every single messages if the url to fetch the collection of message is passed
+			the links added by hateoas will have href and the rel attribute
+			Example	messages - 
+				[{
+					"id":"12",
+					"name":"Sandesh",
+					"gender":"male",
+					"links":[
+						{
+							"href"="/messages/12",
+							"rel"="self"
+						},
+						{
+							"href"="/messages/12/comments",
+							"rel"="comments"
+						}
+					]
+				},
+				{
+					"id":"13",
+					"name":"Ramesh",
+					"gender":"male",
+					"links":[
+						{
+							"href"="/messages/13",
+							"rel"="self"
+						},
+						{
+							"href"="/messages/13/comments",
+							"rel"="comments"
+						}
+					]
+				}]
+		
+	RICHARDSON MATURITY MODEL -->>
+		Ranks the RESTful web APIs in following levels
+			level 0 - Not a RESTful web service, request body contains the action to be taken
+			level 1 - (Resource URI) Individiual URIs for each resource (
+			level 2 - (HTTP Methods) 
+			level 3 - (HATEOAS)
+		
+		
+	CONTENT NEGOTIATION -->>
+		Content negotiation is done between client and server using the request header.
+		Accept - header means what type of content will the client want as the output.
+		Content-Type - header defines what type of content is being sent by the client to server for processing.
+		Content negotiation will be effective if both client and server support the content specified.
+		
+	BEANPARAM -->>
+		@BeanParam annotation is used if there are too much parameter passed in the query. 
+		Example
+			public class MessageFilterBean {
+				private @QueryParam("year") int year; 
+				private @QueryParam("start") int start; 
+				private @QueryParam("size") int size;
+				
+				public int getYear() {
+					return year;
+				}
+				public void setYear(int year) {
+					this.year = year;
+				}
+				public int getStart() {
+					return start;
+				}
+				public void setStart(int start) {
+					this.start = start;
+				}
+				public int getSize() {
+					return size;
+				}
+				public void setSize(int size) {
+					this.size = size;
+				}
+					
+			}
+			
+		This can be used in the resource as
+			@GET
+			public List<Message> getMessages(@BeanParam MessageFilterBean filterBean) {
+				if (filterBean.getYear() == 0) return messageService.getAllMessages();
+				else if (filterBean.getYear() < 0) return null;
+				else if (filterBean.getStart() >= 0 && filterBean.getSize() >= 0) return messageService.getAllMessagesPaginated(filterBean.getStart(), filterBean.getSize());
+				else return messageService.getAllMessagesForYear(filterBean.getYear());
+			}
+		
+		
+	MessageBodyReaders AND MessageBodyWriters -->>
+		Responsible for marshalling and unmarshalling request sent to server into java type
+			and to client into respective accepting types.
+	
+	
+	ParamConverterProvider -->>
+		This class deals with the convertion of parameter sent to the respective types. 
+		This is different than MessageBodyReaders AND MessageBodyWriters.
+		Example 
+			@Override
+			public <T> ParamConverter<T> getConverter(Class<T> rawType, Type genericType, Annotation[] annotations) {
+				
+				// Cast the type to date if something is passed and the accepted type is MyDate instance
+				if (rawType.getName().equals(MyDate.class.getName())) {
+					return new ParamConverter<T>() {
+
+						@Override
+						public T fromString(String value) {
+							Calendar calendar = Calendar.getInstance();
+							if ("tomorrow".equals(value)) calendar.add(Calendar.DATE, 1);
+							else if ("yesterday".equals(value)) calendar.add(Calendar.DATE, -1);
+							MyDate mydate = new MyDate(calendar.get(Calendar.DATE), calendar.get(Calendar.MONTH), calendar.get(Calendar.YEAR));
+							return rawType.cast(mydate);
+						}
+
+						@Override
+						public String toString(T value) {
+							if (value == null) return null;
+							return value.toString();
+						}
+					};
+				}
+				return null;
+			}
+			
+			
+	MessageBodyWriter -->>
+		This class deals with the content that is being written in the body of the request from server to client.
+		If the body is like json,xml and required libraries are present then the request is ok.
+		If Produces is text/plain and the type being returned is date then it will create problem. So required writers should be present.
+		Example
+			@Provider
+			public class DateMessageBodyWriter implements MessageBodyWriter<Date>{
+
+				@Override
+				public boolean isWriteable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
+					return type.getName() == Date.class.getName();
+				}
+
+				@Override
+				public void writeTo(Date date, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType,
+						MultivaluedMap<String, Object> httpHeaders, OutputStream entityStream)
+						throws IOException, WebApplicationException {
+					entityStream.write(date.toString().getBytes());
+				}
+
+			}
+		
+		
+	HATEOAS -->>
+		It is used to build useful urls and passed to the json response as an arrayList
+		Example 
+			@GET
+			@Path("/{messageId}")
+			public Message getMessage(@Context UriInfo uriInfo, @PathParam("messageId") long id) {
+				Message message = messageService.getMessage(id);
+		//		message.addLink(uriInfo.getAbsolutePath().toString(), "self");
+				// Creating uri for self
+				String uri = uriInfo.getBaseUriBuilder().path(MessageResource.class).
+						path(String.valueOf(message.getId())).build().toString();
+				message.addLink(uri, "self");
+				
+				// Creating uri for profiles
+				String profileUri = uriInfo.getBaseUriBuilder().path(ProfileResource.class).
+						path(message.getAuthor()).build().toString();
+				message.addLink(profileUri, "profile");
+				
+				// Creating uri for comments
+				String commentUri = uriInfo.getBaseUriBuilder().path(MessageResource.class)
+						.path(MessageResource.class, "getAllComments")
+						.path(CommentResource.class).resolveTemplate("messageId", message.getId())
+						.build().toString();
+				message.addLink(commentUri, "comments");
+				return message;
+			}
+		
+		
+	RESPONSE AS RETURN TYPE -->>
+		Respone can be returned like the plain object converted finally as json or xml.
+		The benefit of returning Response is that some status, and other useful info alongside object can be returned.
+		Example 
+				@POST
+				public Response postMessage(@Context UriInfo uriInfo, Message message) throws URISyntaxException {
+			//		return Response.status(Status.CREATED).entity(messageService.addMessage(message)).build();
+					Message messageWithId = messageService.addMessage(message);
+					URI uri = uriInfo.getAbsolutePathBuilder().path(String.valueOf(messageWithId.getId())).build();
+					return Response.created(uri).entity(messageWithId).build();
+				}
+		
+		
+	HEADERS -->>
+		Accessing HttpHeaders will provide information about everything passed through headers.
+		Example
+			@GET
+			@Path("/context")
+			public String getParamsUsingContext(@Context UriInfo uriInfo, @Context HttpHeaders headers) {
+				String path = uriInfo.getAbsolutePath().toString();
+				String cookies = headers.getCookies().toString();
+				return "Path: " + path + ", Cookie: " + cookies;
+			}
+		
+		
+	TOMCAT ADMIN INTERFACE -->>
+		Tomcat admin interface cannot be viewed unless following is been made to tomcat-users.xml file
+			<role rolename="manager-gui"/>
+			<role rolename="manager-status"/>
+			<role rolename="manager-script"/>
+			<role rolename="manager-jmx"/>
+			<role rolename="admin-gui"/>
+			<user username="admin" password="admin" roles="manager-gui,manager-status,manager-script,manager-jmx,admin-gui"/>
+		
+		
+	AUTHENTICATION -->>
+		Authentication is difficult in case of REST APIs as they are stateless.
+		There are several approach to handle the authentication. 
+		"Basic Auth" 
+			is among them in which username and password is sent for each and every requests. It is sent through headers.
+			Format - Authorization: Basic dkfewndjfsi52erewQ=
+				In general (Authorization: Basic {encoded string}) - base64 encoding
+				Server then decodes the encoded string and checks for username and password
+				This is not secure. As the encoded string can be decoded by anyone.
+				The intent of this is not the security rather it is for encoding those characters which are not HTTP compatible. 
+				
+		
+	FILTERS -->>
+		Filters intercept the request and response before fulfilling their operations.
+		Filter can either implement ContainerRequestFilter or ContainerResponseFilter.
+		Filters are generally used to read the header information and make changes to them.
+		Example - Filter used for authentication
+			@Provider    //Request filter
+			public class AuthenticationFilter implements ContainerRequestFilter {
+
+				@Override
+				public void filter(ContainerRequestContext requestContext) throws IOException {
+					String session = requestContext.getHeaderString("sessionAuth");
+					if (session == null || !session.equals("sandesh_pokhrel")) {
+						System.out.println("Invalid session");
+						throw new InvalidSessionException("Invalid session");
+					}
+				}
+
+			}
+			
+			
+			@Provider   //Response filter
+			public class PoweredByResponseFilter implements ContainerResponseFilter {
+
+				@Override
+				public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext)
+						throws IOException {
+					responseContext.getHeaders().add("Hello", "Hi");
+					if (requestContext.getHeaders().get("Accept").get(0).toString().equals(MediaType.TEXT_PLAIN)) {
+						System.out.println("TEXT_PLAIN response replied..");
+						responseContext.getHeaders().add("X-Powered-By", "Sandesh");
+					}
+				}
+			}
+		
+		
+		
+	INTERCEPTORS -->>
+		Interceptors are similar to filters.
+		Interceptors are used to manipulate entities rather than headers like filters.
+		As like filter there are two interface called ReaderInterceptor and WriterInterceptor.
+		
+		
+		
+		
+		
+		
+		
+		

@@ -1,0 +1,38 @@
+JDBC -->>
+	This allows to connect to the database.
+	Provides a set of drivers and classes which makes it easier to connect to database.
+	4 types of JDBC drivers
+		JDBC-ODBC bridge driver - converts JDBC method calls into ODBC function calls
+		Native-API driver - uses the client-side libraries of the database. converts JDBC method calls into native calls of the database API.
+								Not written in JAVA
+		Network Protocol driver - uses middleware (application server) that converts JDBC calls directly or indirectly into the vendor-specific database protocol. 
+								It is fully written in java.
+		Thin driver - thin driver converts JDBC calls directly into the vendor-specific database protocol. fully written in Java language.
+		
+
+CONNECTION -->>
+	public class DbUtil {
+	
+		private final static String connectionString = "jdbc:h2:tcp://localhost/~/test";
+		private final static String username = "sa";
+		private final static String password = "";
+		private static Connection connection = null;
+
+		public static Connection getConnection() {
+			
+			try {
+				Class.forName("org.h2.Driver");   
+				connection =  DriverManager.getConnection(connectionString, username, password);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			} catch (ClassNotFoundException e) {
+				e.printStackTrace();
+			} finally {
+				if (connection == null) {
+					System.out.println("Cannot receive a valid connection...");
+					System.exit(0);
+				}
+			}
+			return connection;
+		}
+	}

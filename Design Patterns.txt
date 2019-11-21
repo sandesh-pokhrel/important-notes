@@ -1,0 +1,96 @@
+Gangs of four created these all design patterns.
+CREATIONAL --
+	Singleton
+	Factory
+	Abstract Factory
+	Builder
+	Prototype
+STRUCTURAL --
+	Adapter
+	Composite
+	Proxy
+	Fly weight
+	Facade
+	Bridge
+	Decorator
+BEHAVIOURAL
+	Template Method
+	Meidator
+	Chain of Responsibility
+	Observer
+	Strategy
+	Command
+	State
+	Veisitor
+	Iterator
+	Interpreter
+	Memento
+
+	
+	
+	
+SINGLETON -->>
+	Example
+		public class SingletonClass {
+			private static SingletonClass singletonObject;
+			
+			private SingletonClass() {}
+			public static SingletonClass getInstance() {
+				if (singletonObject == null) {
+					System.out.println("Singleton object initialized..");
+					singletonObject = new SingletonClass();
+				}
+				return singletonObject;
+			}
+			
+			public void printHash() {
+				System.out.println(singletonObject.hashCode());
+			}
+		}
+		
+FACTORY -->>
+	If other classes implements some interface then one factory class can be written to return type based upon the parameter passed to the factory..
+	
+BUILDER -->>
+	This pattern is used if the class constructor has many fields and the parameter needs to customized.
+	For this we create a builder class that keeps adding the provided parameter and finally returns a object based on the parameter passed.
+	Example
+		public class PhoneBuilder {
+
+			private String os;
+			private String processor;
+			private double screenSize;
+			private int battery;
+			private int camera;
+			
+			public PhoneBuilder setOs(String os) {
+				this.os = os;
+				return this;
+			}
+			public PhoneBuilder setProcessor(String processor) {
+				this.processor = processor;
+				return this;
+			}
+			public PhoneBuilder setScreenSize(double screenSize) {
+				this.screenSize = screenSize;
+				return this;
+			}
+			public PhoneBuilder setBattery(int battery) {
+				this.battery = battery;
+				return this;
+			}
+			public PhoneBuilder setCamera(int camera) {
+				this.camera = camera;
+				return this;
+			}
+			
+			public Phone getPhone() {
+				return new Phone(os, processor, screenSize, battery, camera);
+			}
+		}
+
+ADAPTER -->>
+	This pattern helps combining two unmatched types
+	
+COMPOSITE -->>
+	

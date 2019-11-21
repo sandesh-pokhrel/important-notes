@@ -1,0 +1,162 @@
+SPRING -->>
+	Dependency Management
+	Lightweight Nature
+	Spring in Enterprise
+		No need of heavy application servers
+		Provides abstractions for enterprise systems
+		We can focus on business logic rather than repetetive logic
+	Open Source
+	Unobtrusive
+	
+INVERSION OF CONTROL (DEPENDENCY INJECTION) -->>
+	Container maintains class dependencies
+	Object are injected at runtime, not compile time
+	This prevents tight coupling between objects
+	Reduces noise on the code
+	
+APPLICATION CONTEXT -->>
+	Read only wrapper of the beans.
+	Spring uses applicationContext to manage the beans
+	Can have more than one application context running at the same time
+	
+JAVA BASED CONFIGURATION -->>
+	Native language syntax
+	Compile time checking of configuration
+	Easier IDE integration
+	Steps
+		Annotate with @CONFIGURATION
+		Create methods and annotate with @Bean
+		If want to create constant beans then annotate with @Value
+		
+AUTOWIRING -->>
+	Types
+		Constructor
+		Field
+		Setter
+	Constructor autowire should be preferred over field and setter
+	
+LIFECYCLE -->>
+	Three phase:
+		Initialization - 
+			Spend most of the time in this phase
+			Begins with the creation of application context
+			Initialize bean factory
+			Bean initialization and instantiation - 
+				Using java config, xml config and (component scanning and autoconfiguration annotations)
+				After the bean factory is initialized creating all the beans beanFactory post-processors starts working
+					Most famous post-processor is PropertySourcesPlaceholderConfigurer -> this inject value reading the property file
+				Bean instantiation is done in two ways
+					Eager
+						These beans are instantiated prior its usage.
+						If the bean has other dependencies then it will be eager whether or not it is annotated with @Lazy
+					Lazy
+						It is loaded later when needed.
+						If beans are dependent on the lazy bean then that lazy bean will be instantiated eagerly.
+						Annotate such beans with @Lazy annotation
+				After the bean is initialized setters are called
+					Autowiring occurs (non-constructor autowiring) i.e, either through setter or fields. Field autowiring also uses setter autowiring behind the scene
+				Bean post processing is the last phase of initialization
+		Use
+			
+		Destruction - Spend very small time in this phase
+		
+		BeanPostProcessor Example - This is called before every init and after every destroy of bean postconstruct and predestroy.
+			@Component
+			public class CustomBeanPostProcessor implements BeanPostProcessor 
+			{
+				public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException 
+				{
+					System.out.println("Called postProcessBeforeInitialization() for :" + beanName);
+					return bean;
+				}
+				 
+				public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException 
+				{
+					System.out.println("Called postProcessAfterInitialization() for :" + beanName);
+					return bean;
+				}
+			}
+			
+			
+ASPECTS -->>
+	Reusable block of code injected into your application at runtime
+	Powerful tools for adding behaviours
+	Solve cross-cutting concerns
+	Some example of places where aspects can be used
+		Logging
+		Transaction management
+		Caching
+		Security
+	Works in the principle of DRY (Don't repeat yourself) i.e, it forbids code duplication
+	Join Point -> is the point where execution of aspect is targeted toward. (eg. method, annotations etc for which the aspect is targeted towards)
+	Pointcout -> is the expression which identifies for what join point is the aspect targeted towards
+				Syntax - designator("r p.c.m(args))
+							return type, package, class, method, arguments
+							designator types ->
+								execution, within, target, @annotation
+	Advice -> code that is executed which is denoted by pointcut
+	Aspect -> It is the module which contains all pointcuts, join points and advices
+			
+		
+PROGRAM WHICH DEFINES EVERYTHING -->>
+	CONFIGURATION CLASS 
+		@Configuration
+		@PropertySource(value = {"application.properties", "profiles-${spring.profiles.active}.properties"}) //profiles-{someText} is loaded according to the value provided in SPEL
+																										// SPEL -> Spring Expression Language
+		// @Import(value = AnotherSpringConfig.class)      // This will help autowire the bean from AnotherSpringConfig class to SpringConfig class
+		@ComponentScan("com.sandesh.springlinkedin.component")  // This is an annotation based configuration used in spring
+		public class SpringConfig {
+			
+			@Value(value = "${greeting.text}")
+			public String greeting;
+			
+			// Priority is given more to the environment variables than that listed in property file
+			@Value(value = "${JAVA_HOME}")
+			public String javaHome;
+			
+			@Value(value = "${profiles.saysomething}")
+			public String profile;
+			
+			// Injecting non string resources
+		//	@Value("#{new Boolean(envirorment['spring.profiles.active']=='prod')}")  // Using environment variable   // This might not work whereas the below one works 
+			@Value("#{new Boolean('${spring.profiles.active}'=='dev')}")  // Using property file    // This can also be used for reading from environment variables
+			private boolean isDev;
+
+			@Bean
+			public String greeting() {
+				return "Namaste " + greeting + ", " + javaHome;
+			}
+			
+			// Reads spring.profiles.active property set in the env variables/property file and check whether the value is dev or prod and display result accordingly
+			// In our case it is set in the property file named application.properties
+			@Bean
+			@Profile({"dev"})
+			public InnerClass fromDev() {
+				return new InnerClass("Development");
+			}
+			
+			@Bean
+			@Profile("prod")
+			// @Prototype - not a shared instance like in singleton / @Session - used only in web, one instance per user session / @Request - used only in web, one instance per request
+			public InnerClass fromProd() {
+				return new InnerClass("Production");
+			}
+			
+			@Bean
+			public Student getStudent() {
+				return new Student(200, "Mahesh");
+			}
+			
+			
+			public class InnerClass {
+				private String value;
+				public InnerClass(String value) {
+					this.value = value;
+				}
+				public void print() {
+					System.out.println("Hello " + value + ", Profile: " + profile + ", and boolean flag: " + isDev);
+				}
+			}
+		}
+		
+	

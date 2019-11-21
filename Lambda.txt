@@ -1,0 +1,117 @@
+- New approach also known as functional programming.
+- This provides for focus toward verb then the nown. That is on the behaviours.
+
+LAMBDA -->>
+	@FunctionalInterface
+	interface Greeting {
+		void greet();
+	}
+	
+	// This is calling sayGreeting of main passing the interface type of Greeting implemented as lambda expression
+	new Main().sayGreeting(() -> System.out.println("Good Evening!!")); 
+
+	new Main().sayGreeting(() -> System.out.println("Good Night!!"));
+	
+
+LAMBDA SOME DEFAULT CLASSES ->
+	Some classes in function package provided by java are used below
+	Some popular interfaces implemented are Predicate, Consumer, BiConsumer, Function, BiFunction
+		public static void main(String[] args) {
+			Consumer<String> counsumer = value -> System.out.println("Added some text before " + value);
+			Consumer<String> secondConsumer = val -> System.out.println(val.toUpperCase());
+			new MainTestingBuiltIn().testConsumer("Sandesh pokhrel", counsumer);
+			
+			//andThen performs the operation in sequence
+			counsumer.andThen(secondConsumer).andThen(str -> System.out.println(str.toLowerCase())).accept("Sandesh");
+			
+			BiConsumer<String, String> biConsumer = (firstVal, secondVal) -> System.out.println(firstVal + " Sandesh " + secondVal);
+			new MainTestingBuiltIn().testBiConsumer("Hello ", ", how are you?", biConsumer);
+			
+			Predicate<String> predicate = strValue -> strValue.startsWith("S");
+			new MainTestingBuiltIn().testPredicate("Mandesh", predicate);
+			
+			Function<String, String> function = testValue -> {
+				if (testValue.startsWith("S")) return "The string passed starts with: 'S'";
+				else return "The string passes does not start with: 'S'";
+			};
+			new MainTestingBuiltIn().testFunction("Success", function);
+			
+			BiFunction<String, String, Boolean> biFunction = (firstStr, secondStr) -> {
+				return firstStr.concat(secondStr).length() > 5;
+			};
+			new MainTestingBuiltIn().testBiFunction("Hel", "lo Dude", biFunction);
+		}
+		
+		private void testConsumer(String value, Consumer<String> consumer) {
+			consumer.accept(value);
+		}
+		
+		private void testBiConsumer(String firstValue, String secondValue, BiConsumer<String, String> biConsumer) {
+			biConsumer.accept(firstValue, secondValue);
+		}
+		
+		private void testPredicate(String testString, Predicate<String> predicate) {
+			if (predicate.test(testString)) System.out.println("String starts with 'S'");
+			else System.out.println("String does not start with 'S'");
+		}
+		
+		private void testFunction(String testString, Function<String, String> function) {
+			System.out.println(function.apply(testString));
+		}
+		
+		private void testBiFunction(String firstString, String secondString, BiFunction<String, String, Boolean> biFunction) {
+			if (biFunction.apply(firstString, secondString)) System.out.println("Length is greater than 5");
+			else System.out.println("Length is not greater than 5");
+		}
+
+LAMBDA CLOSURES -->>
+	This is related to how the variable in outer scope is used in lambda.
+	Example
+		public static void main(String[] args) {
+			
+			//the variable used in lambda/anonymous expression needs to be final or effectively final
+			final int a = 100;
+			new MainClosures().doProcess(5, new Process() {
+				
+				@Override
+				public void process(int i) {
+					System.out.println("Sum is: " + (i+a));
+				}
+			});
+		}
+
+		private void doProcess(int i, Process process) {
+			process.process(i);
+		}
+		
+LAMBDA THIS REFERENCE -->>
+	For anonymous inner class , this reference points to the object created in that block, i.e, the implementing class
+	For lambda, this keyword refer to the object of outside class i.e, same as the this reference in outside block
+	
+METHOD REFERENCE -->>
+	Method reference is the shortcut for lambda expresstion
+	This is used if the lambda expression is simply calling another method to perform something
+		public class MainMethodReference {
+
+			public static void main(String[] args) {
+				doProcess(MainMethodReference::greetSomething);
+			}
+
+			private static void doProcess(Greeting greeting) {
+				greeting.greet();
+			}
+			
+			private static void greetSomething() {
+				System.out.println("I am greeting");
+			}
+		}
+		
+STREAM API -->>
+	This helps minimizes the iterations...
+	Operations can be cascaded one after another and each method returns the object of same type.
+	Example
+		//Here values is a List
+		values.stream().filter(val -> val%2==0).forEach(System.out::println);     //values.parallelStream() is same in functionality but can perform actions in parallel faster approach
+		
+	
+	

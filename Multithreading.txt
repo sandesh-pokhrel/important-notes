@@ -1,0 +1,323 @@
+VOLATILE -->>
+	-> Volatile keyword make sure that the variable are not cached across multiple threads.
+	-> If two threads are changing same variable then it make sure that the another thread check the variable before working.
+	-> If volatile is not used then another thread will cache variable of its own and donot care about what another is doing.
+		(This might not be the case in all platform)
+		
+SYNCHRONIZED -->>
+	-> This will ensure thread safety. cannot be used in method level and object level.
+	
+THREAD POOL -->>
+	Creates number of threads specified and allocate them the work and wait for their termination before proceeding. Example -->
+	    ExecutorService executorService = Executors.newFixedThreadPool(2);
+		for (int i=0; i<5; i++) {
+			executorService.submit(new Worker(i));
+		}
+		executorService.shutdown();
+		System.out.println("Executor Service submitted");
+		
+		try {
+			executorService.awaitTermination(1, TimeUnit.DAYS);
+		} catch (InterruptedException e) {}
+		
+		System.out.println("Executor service terminated");
+	
+COUNTDOWN LATCH -->>
+	This is the thread safe class. This countdowns till zero and will perform the action after that. This is high level and 
+	minimizes the problem of wait notify.
+		CountDownLatch latch = new CountDownLatch(3);
+		for (int i=0; i<3; i++) {
+			ExecutorService executorService = Executors.newFixedThreadPool(3);
+			executorService.submit(new Processor(latch));
+		}
+		
+		try {
+			latch.await();
+		} catch (InterruptedException e) {}
+		System.out.println("Completed...");
+		
+	latch.await moves forward only after the countdown reaches zero. The processor class will call method latch.countDown();
+	
+PRODUCER-CONSUMER -->>
+	User array blocking queue in this case. Example
+		private static BlockingQueue<Integer> queue = new ArrayBlockingQueue<Integer>(10);
+	Producer Consumer Example
+		private static void producer() throws InterruptedException {
+			Random random = new Random();
+			while (true) {
+				queue.put(random.nextInt(100));
+			}
+		}
+		
+		private static void consumer() throws InterruptedException {
+			while (true) {
+				Thread.sleep(800);
+				Integer value = queue.take();
+				System.out.println("Value taken: " + value + "; Size is: " + queue.size());
+			}
+		}
+	Here producer is inserting the value and consumer is taking out the value. Counsumer is using sleep but still there is no
+	problem regarding the arrayIndexOutOfBoundException in producer. put() method of queue will check if the size is full.
+	
+WAIT-NOTIFY -->>
+	wait() and notify() are inherited by default as they belong to object class
+	wait() will wait till the lock it has acquired will be released by others
+	notify() will release the lock and notify others who are waiting to proceed with their action
+	Example
+		public void produce() throws InterruptedException {
+			synchronized (this) {
+				System.out.println("Producer running...");
+				wait();															//this.wait(); if the lock object was another then thatObject.wait();
+				System.out.println("Producer resumed...");
+			}	
+		}
+		
+		public void consume() throws InterruptedException {
+			Thread.sleep(3000);
+			Scanner scanner = new Scanner(System.in);
+			synchronized (this) {
+				System.out.println("Consumer running..");
+				System.out.println("Please enter return key to continue..");
+				scanner.nextLine();
+				System.out.println("Consumer completed.. before notify");
+				scanner.close();
+				notify();														// notify doesnot relinquish the lock unless it is done // this.notify(); if lock object was something else the thatObject.notify();
+				System.out.println("Consumer completed.. after notify");
+			}
+		}
+		
+		Result ->
+			Producer running...
+			Please enter return key to continue..
+			Consumer running..
+
+			Consumer completed.. before notify
+			Consumer completed.. after notify
+			Producer resumed...
+			Whole process completed....
+
+REENTRANT LOCK -->>
+	Lock can be accqired on the same object many times. It should be released for the same time to completely remove the lock.
+	Example
+		private Lock lock = new ReentrantLock();
+		private Condition condition = lock.newCondition();
+		
+		private void increment() {
+			for(int i=0; i<10000; i++) {
+				count++;
+			}
+		}
+		
+		public void firstThread() throws InterruptedException {
+			lock.lock();
+			
+			System.out.println("First thread waiting...");
+			condition.await();
+			System.out.println("First thread resumed...");
+			try {
+				System.out.println("First thread incrementing..");
+				increment();
+			} finally {
+				lock.unlock();
+			}
+		}
+		
+		public void secondThread() throws InterruptedException {
+			Scanner scanner = new Scanner(System.in);
+			Thread.sleep(2000);
+			lock.lock();
+			
+			System.out.println("Second thread locked and running...");
+			System.out.println("Press return key to resume first thread..");
+			scanner.nextLine();
+			condition.signal();						// as like notify signal doesnot relinquish the lock unless it is done
+			
+			
+			try {
+				System.out.println("Second thread incrementing..");
+				increment();
+				System.out.println("Second thread incrementing completed..");
+			} finally {
+				lock.unlock();
+				scanner.close();
+			}
+		}
+		
+		public void finished() {
+			System.out.println("Count is: " + count);
+		}
+		
+DEADLOCK -->>
+	When threads wait for the lock indefinitely then that scenario is called deadlock.
+	Example
+		private Lock lock2 = new ReentrantLock();
+		
+		public void firstThread() throws InterruptedException {
+			for (int i=0; i<10000; i++) {
+				lock1.lock();				// lock order is different for them
+				lock2.lock();
+				try {
+					Account.transfer(acc1, acc2, random.nextInt(100));
+				} finally {
+					lock1.unlock();
+					lock2.unlock();
+				}
+			}
+		}
+		
+		public void secondThread() throws InterruptedException {
+			for (int i=0; i<10000; i++) {
+				lock2.lock();				// lock order is different than firstThread()
+				lock1.lock();				// Both thread will have one lock and indefinitely wait for other to release
+				try {
+					Account.transfer(acc2, acc1, random.nextInt(100));
+				} finally {
+					lock2.unlock();
+					lock1.unlock();
+				}
+			}
+		}
+	Solution to the deadlock problem
+	Example
+			private void acquireLock(Lock firstLock, Lock secondLock) {
+				boolean gotFirstLock = false;
+				boolean gotSecondLock = false;
+				
+				try {
+					gotFirstLock = firstLock.tryLock();
+					gotSecondLock = secondLock.tryLock();
+				} finally {
+					if (gotFirstLock && gotSecondLock) {
+						return;
+					}
+					if (gotFirstLock) {
+						firstLock.unlock();
+					}
+					if (gotSecondLock) {
+						secondLock.unlock();
+					}
+				}
+			}
+			
+			public void firstThread() throws InterruptedException {
+				for (int i=0; i<10000; i++) {
+		//			lock1.lock();
+		//			lock2.lock();
+					acquireLock(lock1, lock2);
+					try {
+						Account.transfer(acc1, acc2, random.nextInt(100));
+					} finally {
+						lock1.unlock();
+						lock2.unlock();
+					}
+				}
+			}
+			
+			public void secondThread() throws InterruptedException {
+				for (int i=0; i<10000; i++) {
+		//			lock2.lock();
+		//			lock1.lock();
+					acquireLock(lock2, lock1);
+					try {
+						Account.transfer(acc2, acc1, random.nextInt(100));
+					} finally {
+						lock1.unlock();
+						lock2.unlock();
+					}
+				}
+			}
+			
+SEMAPHORES -->>
+	Semaphore is the object which contains the fixed set of permits. If the permits is available then the acquire() method in
+	semaphore can be called.
+	release() method can be called to release many more permits.
+	Simple Example
+		//		Semaphore semaphore = new Semaphore(1);
+		//		semaphore.release();
+		//		semaphore.acquire();
+		//		semaphore.acquire();
+		//		semaphore.acquire();
+		//		System.out.println(semaphore.availablePermits());
+		
+	Another Example
+		class Connection {
+			private static Connection connection = new Connection();
+			private int connections = 0 ;
+			private Semaphore semaphore = new Semaphore(10, true);   //true means the thread acquiring the first lock will be the most eligible one to get the later locks
+			
+			private Connection() {}
+			
+			public static Connection getInstance() {
+				return connection;
+			}
+			
+			public void connect() {
+				try {
+					semaphore.acquire();
+				} catch (InterruptedException e1) {}
+				try {
+					doConnect();
+				} finally {
+					semaphore.release();
+				}
+			}
+			private void doConnect() {
+				
+				synchronized (this) {
+					connections++;
+					System.out.println("Current connections: " + connections);
+				}
+				try {
+					Thread.sleep(2000);
+				} catch (InterruptedException e) {}
+				synchronized (this) {
+					connections--;
+					System.out.println("Current connections: " + connections);
+				}
+			}
+		}
+	
+	Main method calls connect from the threads in executor service...
+	
+CALLABLE AND FUTURE -->>
+	Callable is used instead of Runnable in executor service in order to get return from the thread. The reurned calue is stored int the Future.
+	Example
+		Future<Integer> future = executor.submit(new Callable<Integer>() {
+			@Override
+			public Integer call() throws Exception {
+				Random random = new Random();
+				System.out.println("Started ....");
+				
+				try {
+					Thread.sleep(random.nextInt(3000));
+				} catch (InterruptedException e) {}
+				
+				System.out.println("Finished ....");
+				return 1234;
+			}
+		});
+		
+		executor.shutdown();
+		System.out.println("Result is: " + future.get());        // The main thread will wait automatically till it gets the value no need for awaitTermination() method
+		System.out.println("Whole program completed..");		 // get() throws ExecutionException if the call() method in executor submit() throws any exception
+ 
+ THREAD INTERRUPT -->>
+	The thread should be interrupted in some case to stop it in some condition or some point.
+	Example 
+		System.out.println("Started...");
+		
+		Thread thread = new Thread(() -> {
+			Random random = new Random();
+			for (int i=0; i<1E8; i++) {
+				if (Thread.currentThread().isInterrupted()) {
+					System.out.println("Thread is interrupted...");
+					break;
+				}
+				Math.sin(random.nextDouble());
+			}
+		});
+		thread.start();
+		Thread.sleep(500);
+		thread.interrupt();
+		thread.join();
+		System.out.println("Completed...");
