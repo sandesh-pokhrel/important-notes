@@ -83,6 +83,8 @@ ASPECTS -->>
 	Powerful tools for adding behaviours
 	Solve cross-cutting concerns
 	Some example of places where aspects can be used
+	Annotate the aspect with @Aspect and @Component annotations
+	Spring config file should be annotated with @EnableAspectJAutoProxy annotation
 		Logging
 		Transaction management
 		Caching
@@ -92,9 +94,85 @@ ASPECTS -->>
 	Pointcout -> is the expression which identifies for what join point is the aspect targeted towards
 				Syntax - designator("r p.c.m(args))
 							return type, package, class, method, arguments
+								here return type can be * 
+								package name is optional
+								
 							designator types ->
 								execution, within, target, @annotation
+								execution
+									@Pointcut("execution(* getName(..))")
+									public void executeLoggingNormal() {}
+									
+									@Pointcut("@annotation(Loggable)")
+									public void executeLogging() {}
+									
+									@Pointcut("within(com.sandesh.springlinkedin.component.Student)")
+									public void executeWithin() {}
+									
+									@Pointcut("@within(org.springframework.stereotype.Component)")
+									public void executeWithin() {}
+									
+									@Pointcut("target(com.sandesh.springlinkedin.component.Student)")
+									public void executeLoggingTarget() {}
+									
+									@Pointcut("@target(org.springframework.stereotype.Component)")
+									public void executeLoggingTarget() {}
+									
+									
+									
+				pointcuts can be combined using the logical operators && || !					
+									
 	Advice -> code that is executed which is denoted by pointcut
+			Types
+				Before -> This is executed before execution of target methods
+					@Before("executeLoggingTarget()")
+					public void beforeLoggable(JoinPoint joinPoint) {
+						String methodName = joinPoint.getSignature().getName();
+						logger.warn("Methods annotated with Loggable executing for method: " + methodName);
+					}
+					
+				After ->
+					AfterReturning
+						Example
+							// Similar to this there is AfterThrowing and After annotations, After execute in both cases
+							@AfterReturning(pointcut = "executeLogging()", returning = "returnValue")
+							public Object afterLoggable(JoinPoint joinPoint, Object returnValue) {
+								String methodName = joinPoint.getSignature().getName();
+								logger.warn("(After Returning) Methods annotated with Loggable executing for method: " + methodName);
+								logger.warn("String value currently: " + returnValue.toString() + ", Instance of String: " + (returnValue instanceof String));
+								
+								// value modified is not getting returned
+								if (returnValue instanceof String) {
+									String modified = (String) returnValue;
+									modified = "Modified Value";
+									return modified;
+								}
+								// returned value is still not changed
+								return returnValue;
+							}
+					AfterThrowing
+					After
+					
+				Around ->
+					Strongest and powerful among advices
+					Example -
+						// Be aware while using around as it can modify the returned value intercepting in between
+						// Around advice
+						@Around("executeLogging()")
+						public Object aroundLoggable(ProceedingJoinPoint pJointPoint) throws Throwable {
+							String methodName = pJointPoint.getSignature().getName();
+							logger.warn("(Around + Before) Methods annotated with Loggable executing for method: " + methodName);
+							Object returned = pJointPoint.proceed();
+							System.out.println("(Around) String value is previously: " + returned.toString());
+							if (returned instanceof String) {
+								String newValue = returned.toString();
+								newValue = "Modified Name";
+								System.out.println("(Around) String value now: " + newValue);
+								return newValue;
+							}
+							return returned;
+						}	
+					
 	Aspect -> It is the module which contains all pointcuts, join points and advices
 			
 		

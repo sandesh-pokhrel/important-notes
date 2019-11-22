@@ -1,0 +1,14 @@
+Full cross first
+Make one side (This should also fix the first row)
+Fix second row -
+	If the piece should be turned right then URU'R'
+	If the piece should be turned left then U'F'UF
+Making second cross at the top
+	FRUR'U'F'
+	If cross is made but not a full cross then
+		RUR'URUUR'U
+Fixing the corner piece
+	put the one which at the current position to the right then turn
+		URU'L'UR'U'L
+	after all the corner pieces at the correct position
+		R'D'RD
