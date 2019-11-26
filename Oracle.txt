@@ -118,14 +118,31 @@ PARTITIONING -->>
 		Composite Partitioning - 
 		Automatic list Partitioning - 
 		
+
+		
+------------------------------------------------------------ DATABASE ADMINSTRATION -------------------------------------
+		
+ARCHITECTURE -->>
+	Made up of three parts - 
+		Oracle instance
+		Oracle database storage
+		Oracle server processes (SPs)
 		
 		
-		
-		
-		
-		
-		
-		
+ORACLE INSTANCE -->>
+	Is loaded into the memory each time database starts (In memory nature)
+	Contains shared memory caches (Shared pool, buffer cache, redo buffer etc.)
+	Contains Oracle's background processes
+	Instance will be removed from the memory once it is shut down (non persistent nature)
+	
+DATABASE STORAGE -->>
+	This is the storage which contains oracle files to store the data
+	This makes the physical oracle database
+	Microsoft word and microsoft word file is analogous to oracle instance and oracle file
+	Data storage is usually - Both are natively supported by oracle
+		SAN -  Storage Area Netword (Accessed by fibre network)
+		NAS -  Netword Attached Storage 
+	Data can also be place in local disk (not recommended - single point of failure)	
 		
 		
 		
