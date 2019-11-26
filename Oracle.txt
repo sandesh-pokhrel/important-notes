@@ -79,8 +79,41 @@ PARTITIONING -->>
 		If both are used then database optimizer might use index over partition.
 	Types of table partitions
 		List Partitioning -
+			Here we have made four partitions. Values provides the condition analyzing which the records will be assigned to partition
+			CREATE TABLE table_name 
+			(columns.......)
+			PARTITION BY LIST (column_name) (
+				PARTITION parname_1 VALUES (...),
+				PARTITION parname_2 VALUES (...),
+				PARTITION parname_3 VALUES (...),
+				PARTITION parname_4 VALUES (DEFAULT)    -- Value not matching any will be assigned here
+			);
+			
+			Splitting existing partition parname_4 into two partitions
+			ALTER TABLE table_name SPLIT PARTITION parname_4 VALUES (....)
+			INTO (PARTITION parname_5, PARTITION parname_4);
 		Range Partitioning -
+			Here we have made four partitions. Values provides the condition analyzing which the records will be assigned to partition
+			CREATE TABLE table_name 
+			(columns.......)
+			PARTITION BY RANGE (column_name) (
+				PARTITION parname_1 VALUES LESS THAN (<something>),
+				PARTITION parname_2 VALUES LESS THAN (<something>),
+				PARTITION parname_3 VALUES LESS THAN (<something>),
+				PARTITION parname_4 VALUES LESS THAN (<something>) 
+			);
+			
+			Adding new partition
+			ALTER TABLE table_name ADD PARTITION parname_5 VALUES LESS THAN (<something>)
 		Hash Partitioning - 
+			This method of partitioning is used when there is no specific way to partition the table.
+			It just analyzes hash value and perform partitioning
+			CREATE TABLE table_name 
+			(columns......., PARTITION BY HASH (col_name)) PARTITIONS 4;
+			
+			ANALYZE TABLE table_name COMPUTE STATISTICS;   -- This will analyze the table and assign record to specific partition
+			SELECT table_name, partition_name, num_rows FROM user_tab_partitions WHERE table_name = 'TABLE_NAME';
+					-- This will list all partitions and provide info like number of rows etc.
 		Interval Partitioning - 
 		Composite Partitioning - 
 		Automatic list Partitioning - 
