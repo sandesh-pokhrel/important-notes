@@ -145,15 +145,112 @@ DATABASE STORAGE -->>
 	Data can also be place in local disk (not recommended - single point of failure)	
 		
 		
+SERVER PROCESSES (SPs) -->>
+	Server processes are spawned when user is trying to connect to database.
+	It's role -
+		verify the syntax of sql query that the user is trying to execute
+		it then read data from disk and also load it in the buffer cache
 		
 		
 		
+---------------ORACLE INSTALLATION PROCESS -----------------------------------------
+......
+............
+.................
+
+	After installation --
+		Creating a database instance
+			Goto dbhome/bin folder and run "netca"
+			Go on and add the listener, default port of 1521 can be used as the listener's port
+			After finishing it -
+				run 'lsnrctl' command, after that 'status' command will show what listener is currently running
+		Creating a database
+			Goto dbhome/bin folder and run "dbca"
+			While creating database select advanced mode and do accordingly
+			For simplicity Create as container database is not checked, if checked then pluggable database will be created too if selected accordingly
+			Oracle enterprise manager is the web interface provided through which we can manage our database as administrator
+			During the setup of recovery area checking the archiving will archive the redo logs automatically
+			Storage area can be setup which must be the secured one
+			After filling up all the required details, the database creation and the instance creation step will begin.
+		view /etc/oratab file for all the services running in the host
+			orcl:/u01/app/oracle/product/12.2.0/dbhome_1:N, here N means the instance will not run automatically after reboot
 		
 		
 		
+---------------- ORACLE LINUX FIXING SWAP SIZE ----------------------------------------------------------------
+
+	1 check what swap size
+	#swapon –s
+	Filename                                Type            Size    Used    Priority
+	/dev/xvda3                              partition       2097144 0       -1
+	  
+	2 Create a file that you’ll use for swap with dd command with   as root
+	dd if=/dev/zero of={/swapfile path} bs={size of swap}  count=1048576
+	Example:-
+	[root@localhost]#dd if=/dev/zero of=/home/swapfile bs=6048 count=1048576
+	Note :- Above command will be create the 6Gb swapfile on /home location as  swapfile
+	3 Set up a Linux swap area
+	#mkswap /home/swapfile
+	4: Enabling the swap file
+	#swapon /home/swapfile
+	#swapon –a
+	5 status of add swap
+	[root@myrem12c em12cBP1]# swapon -s
+	Filename                                Type            Size    Used    Priority
+	/dev/xvda3                              partition       2097144 0       -1
+	/home/swapfile                          file            6097144 0       -2
+	6 Update /etc/fstab   (this must to be done )
+	#vi /etc/fstab
+	/home/swapfile        none             swap   sw      0 0  
+	Note  :- Add above line ending with  the file otherwise ones you restart the server swap partition not be mounted to the system
+
+	Then retry the installation
 		
 		
 		
+---------------------- USEFUL LINUX COMMANDS (CENTOS) --------------------------------	
+	
+	wget http://get.geo.opera.com/pub/opera/linux/1216/opera-12.16-1860.x86_64.rpm
+	lsnrctl status;	lsnrctl start;	lsnrctl stop;
+	lsnrctl > status; lsnrctl > start; lsnrctl > stop;
+	via sqlplus >
+		start and stop the instance -
+			alter system register;   >> force instance to connect to the listener automatically
+			shutdown immediate;	shutdown abort; shutdown normal OR shutdown;     >> stopping the database instance
+			startup;   >> startup mount and open
+			startup unmount;   >> startup database to unmount state. Instance is up but not linked to the database
+			startup mount;
+			startup open;   >> ready to receive the connections
+		parameters related -
+			show parameter sga_target;
+			show parameter sga_; >> list all the params with sg_ text as substring
+			alter system set sga_target=1000m scope=memory/spfile/both;  >> memory -- cleared after restart, spfile -- stored in spfile reflects after restart, both -- both
+			create pfile='/home/oracle/my_pfile.ora' from spfile;    >> this will copy all the parameters from spfile so that we can view it
+		create user and permissions -
+			create user user_name identified by password;   >> if connected then displays create session privilege error
+			grant create session to user_name;    >> if create table is executed - insufficient privilege
+			grant unlimited tablespace, create table to user_name; 
+			drop user user_name;   >> only if the schema does not owns anything otherwise
+			drop user user_name cascade;
+			create role role_name;
+			grant (roles.....) to role_name;
+			grant role_name to user_name;
+		data dictionary -
+			v$logfile;    >> view all redo log files
+			dba_data_files;    >> view data files, <file_name, tablespace_name> shows the datafile belonging to tablespace
+			v$controlfile;		>> view control file.  >> if multiplexing is enabled then it will be stored in multiple places
+			v$session;
+			dba_tablespaces;
+		troubleshoot using alert log -
+			It contains all warnings, errors generated by oracle
+			cd $ORACLE_BASE/diag/rdbms/orcl/orcl/trace   >> here alert_orcl.log
+		storage - 
+			tablespace is a collection of datafiles used as the storage
+			dba_tablespaces -
+				system - it is the tablespace where oracle data dictionary are stored.
+			dba_data_files;    >> view data files, <file_name, tablespace_name> shows the datafile belonging to tablespace	
+			create tablespace tbspc_name datafile '/mnt/san_storage/oradata/dfile01.dbf' size 20m autoextend on;
+			drop tablespace tbspc_name including contents and datafiles;
 		
 		
 		
