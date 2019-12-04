@@ -154,9 +154,38 @@ SERVER PROCESSES (SPs) -->>
 		
 		
 ---------------ORACLE INSTALLATION PROCESS -----------------------------------------
-......
-............
-.................
+	Steps:
+		i) Edit /etc/hosts file and add 	127.0.0.1	<eg:oel7.lab.local>	<eg:oel7>
+			this is to resolve domain from ip and viceversa, run hostname command to resolve what to put in second parameter
+
+		ii) Resolve oracle kernel parameters as well as the group that is to be added for the oracle functioning like groupadd -g oinstall, 				groupadd -g dba, useradd -g oinstall -G dba oracle passwd oracle... This all will be done by below command
+				yum install oracle-rdbms-server-12cR1-preinstall
+			group and user are stored in /etc/group and /etc/passwd file respectively. command -->> id oracle --- will also display
+		iii) Now create directory where oracle is to be installed. For this login as root user and enter commands
+			mkdir -p /u01/app/oracle    --- oracle binary file will be stored here i.e, oracle software
+			chown -R oracle:oinstall /u01
+			chmod -R 775 /u01
+
+			mkdir -p /mnt/san_storage/oradata --- oracle datafiles, redofiles etc will be stored here i.e, datafiles
+		iv) Now change /home/oracle/.bash_profile
+			export ORACLE_HOSTNAME=oel7.lab.local i.e, hostname
+			export ORACLE_UNQNAME=orcl
+			export ORACLE_BASE=/u01/app/oracle
+			export ORACLE_HOME=$ORACLE_BASE/product/12.1.0.2/dbhome_1
+			export ORACLE_SID=orcl
+			export PATH=/usr/sbin:$PATH
+			export PATH=$ORACLE_HOME/bin:$PATH
+
+		v) Now set SELINUX to be permissive, this will print warning instead of enforcing security
+			/etc/selinux/config     SELINUX=permissive
+			run command -->> setenforce permissive ---- to immediately show the effect otherwise restart to see the change
+		vi) If network firewalls are up and running stop them so they don't interfere
+			service iptables stop
+			chkconfig iptables off
+		vii) Create the folder where oracle is to be downloaded
+			With root user - 
+				mkdir -p /orasoft
+				chown -R oracle:oinstall /orasoft
 
 	After installation --
 		Creating a database instance
