@@ -127,6 +127,174 @@ ARCHITECTURE -->>
 		Oracle instance
 		Oracle database storage
 		Oracle server processes (SPs)
+		RDBMS
+			Instance
+				Process
+					PMON
+					SMON
+					DbWn
+					Ckpt
+					LGWR
+					ARCn
+					Optional (ARCn, ASMB, RBAL, Others)
+				Memort Structure
+					SGA
+						Data buffer cache
+						Shared pool
+						Redo log buffer
+						Large pool
+						Java pool
+						Streams pool
+					PGA
+			Database
+				Data files
+				Control files
+				Redo log files
+				Archived redo log files
+				Parameter files
+				Password file
+				Backup files
+				Trace files
+				Alert log file
+				
+				
+BACKGROUND PROCESSES -->>
+	DATABASE WRITER - 
+		Writes data from data buffer cache to the disk
+		Dirty  buffer = modified
+		Cold buffer = not recently
+		Writes the both types of buffers to the disk, such the buffer gets free space for other data.
+		Can have more than one database writer according to the need.
+		DB_WRITER_PROCESSES parameter can be used to configure more writers.
+		When ? -- When a server process cannot find a clean reusable buffer, and when oracle needs to advance the checkpoint i.e,
+			the oldest dirty buffer from which the database need to recover during failure i.e, in redo log file
+			
+	LOG WRITER -
+		Redo log buffer is the cyclic buffer, 3 in count
+		Responsible for writing from redo log buffer to redo log files
+		When ? --
+			When a user process commits a transaction
+			When the redo log buffer is one-third full
+			Before a DBWn process writes modified buffers to disk
+			Every 3 seconds
+			
+	CHECKPOINT PROCESS -
+		Checkpoint is a database event which synchronizes the modified data blocks in memory with the data files on disk
+		It also updates the datafile header and control file with the latest checkpoint System Change Number (SCN)
+		When ? --
+			At each switch of the redo log files
+			Once the number os seconds defined in the LOG_CHECKPOINT_TIMEOUT is reached
+			Once the current redo log file reaches the size
+				LOG_CHECKPOINT_INTERVAL * size of IO OS blocks
+			Directly by the ALTER SYSTEM SWITCH LOGFILE command
+			Directly with the ALTER SYSTEM CHECKPOINT command
+			
+	SMON (System Monitor) PROCESS -
+		Performs recovery at the instance startup
+		Clears the temporary unused segment
+		
+	PMON (Process Monitor) PROCESS - 
+		Performs process recovery when a user process fails
+			Cleans up the buffer cache
+			Free resource that are used by the user process
+		Restarts stopped running dispatchers and server processes
+		Dynamically registers database service with network listeners
+		
+	RECO (Recoverer) PROCESS - 
+		Used with the distributed database configuration
+		Automatically resolves all in-doubt transactions
+		
+	ARCn (Archiver) PROCESS -
+		Copy redo log files to a designated storage device after a log switch occurs
+		Runs only in ARCHIVELOG mode
+		LOG_ARCHIVE_MAX_PROCESS param to configure the number of archiver process
+		
+		
+MEMORY STRUCTURES -->>
+	SGA (Shared Global Area) 
+		Program code (PL/SQL code, Java code)
+		Cached data shared among users
+		Redo log entries
+		Information about currently connected sessions etc.
+		This is shared across multiple users
+		
+		BUFFER CACHE -
+			holds the copies of data blocks that are read from data files
+			shared by all concurrent users
+			number of buffers defined by DB_BLOCK_BUFFERS
+			size of a buffer based on DB_BLOCK_SIZE
+			stores the most recently used blocks
+			Data must first come in buffer before the user can read it
+			
+		SHARED POOL -
+			Library cache
+				Contains statement text, parsed code and an execution plan, Contains one or more sql area
+				Shared SQL area
+					contains a parse tree and execution plan for a given SQL statement
+			Data dictionary cache
+				Contains table and column definitions and privileges
+			Result cache
+				It stores the result of sql query and the plsql query
+				If same query is run multiple times then it gives back the same result
+			Size of shared pool SHARED_POOL_SIZE param
+			
+		REDO LOG BUFFER -
+			This is a circular buffer which stores the changes made to the database
+			DML, DDLs etc..
+			Useful during database recovery
+			Size is defined by LOG_BUFFER
+			
+		LARGE POOL -
+			This is an optional memory area which provide large memory allocations
+			If not defined then will reduce performance as the shared pool is used instead
+			Parallel query operations
+			Oracle backup and restore operations
+			Make heavy operations use large pool instead of shared pool
+			
+		JAVA POOL and STREAMS POOL - 
+			Used to store java code and java object required for java virtual machine
+			Size defined by JAVA_POOL_SIZE
+			
+			Used to Oracle streams to store buffered queue message and provide memory for oracle streams processes
+			Size defined by STREAMS_POOL_SIZE
+			
+		KEEP BUFFER POOL -
+			Data which is frequently accessed can be pinned in the keep buffer pool
+			In case if buffer cache is full and the data is to be removed will cause the problem if that data is highly used
+			To create keep buffer pool DB_KEEP_CACHE_SIZE
+			
+		RECYCLE BUFFER POOL -
+			Recycle pool is reserved for large tables that experience full table scans that are unlikely to be reread or accessed rarely
+			Size defined by DB_RECYCLE_CACHE_SIZE
+			
+		nK BUFFER CACHE -
+			Is used to store oracle data blocks having different size then the default block size (8192k)
+			Default block size is denoted by DB_BLOCK_SIZE
+			Size defined by DB_NK_CACHE_SIZE
+			Eg: DB_2K_CACHE_SIZE = 0M, DB_4K_CACHE_SIZE = 0M etc ...
+			
+		
+	PGA (Program Global Area)
+		This area of memory is not shared.
+		Users have their own PGA to work in their session
+		PGA contains private SQL area for each server processes for each user connection
+			That private SQL will be stored in Shared SQL area inside library cache checking if all are running similary query
+		Its a private memory region containing data and control information for a server process
+		
+		
+DEDICATED VS SHARED SERVERS -->>
+	Dedicated servers -
+		One server process is spawned for each user connection
+		Consumes lots of memory
+		Greater performance
+	Shared servers -
+		Server processes are shared among multiple connections
+		It provides scalability
+		Here first the user request is handled through Dispatcher process and is stored in the request & response queues. Then from that shared process performs its actions.
+		Nobody is using these servers nowadays.
+		In shared servers PGA contains only stack space and SGA contains User global areas. Both are in PGA in case of dedicated servers.
+		
+	
 		
 		
 ORACLE INSTANCE -->>
@@ -147,6 +315,7 @@ DATABASE STORAGE -->>
 		
 SERVER PROCESSES (SPs) -->>
 	Server processes are spawned when user is trying to connect to database.
+	Each user will have the dedicated server process unless pooling is used with the help of middleware.
 	It's role -
 		verify the syntax of sql query that the user is trying to execute
 		it then read data from disk and also load it in the buffer cache
@@ -160,6 +329,7 @@ SERVER PROCESSES (SPs) -->>
 
 		ii) Resolve oracle kernel parameters as well as the group that is to be added for the oracle functioning like groupadd -g oinstall, 				groupadd -g dba, useradd -g oinstall -G dba oracle passwd oracle... This all will be done by below command
 				yum install oracle-rdbms-server-12cR1-preinstall
+				yum install oracle-database-server-12cR2-preinstall
 			group and user are stored in /etc/group and /etc/passwd file respectively. command -->> id oracle --- will also display
 		iii) Now create directory where oracle is to be installed. For this login as root user and enter commands
 			mkdir -p /u01/app/oracle    --- oracle binary file will be stored here i.e, oracle software
@@ -194,6 +364,19 @@ SERVER PROCESSES (SPs) -->>
 			After finishing it -
 				run 'lsnrctl' command, after that 'status' command will show what listener is currently running
 		Creating a database
+			Database can also be created in manual for which we have to create everything like spfile (parameters) in dbs folder,
+				database itself (
+					create database orcl
+					darafile '..../example.dbf' size 300m autoextend on
+					sysaux datafile '............' ......... on
+					default tablespace user_data datafile '............' 
+					undo tablespace undotbs datafile '.....................'
+					logfile group 1 '......./redo1.redo' size 100m,
+							group 2 '......../redo2.redo' size 100m;
+				) save this  sql in some location, then connect to idle instance of database with admin and then startup nomount
+				  after this run that sql file and all other sql files, 
+				datafiles etc...
+				This method is hectic , so prefer below options
 			Goto dbhome/bin folder and run "dbca"
 			While creating database select advanced mode and do accordingly
 			For simplicity Create as container database is not checked, if checked then pluggable database will be created too if selected accordingly
@@ -245,9 +428,22 @@ SERVER PROCESSES (SPs) -->>
 	via sqlplus >
 		start and stop the instance -
 			alter system register;   >> force instance to connect to the listener automatically
+			shutdown - nomount - mount - open
+			nomount - 
+				only instance is started, not connected to the database, used for database creation and recovery purpose
+			mount -
+				taking the instance and associating with the database
+				only the dba can access database at this stage, no user can access, still closed
+				for enabling and disabling archive log mode
+				for renaming data files etc.
+				users cannot access the database at this stage
+				adding, dropping, renamind redo log files
+				performing database recovery
+			open -
+				all users can access the database
 			shutdown immediate;	shutdown abort; shutdown normal OR shutdown;     >> stopping the database instance
 			startup;   >> startup mount and open
-			startup unmount;   >> startup database to unmount state. Instance is up but not linked to the database
+			startup nomount;   >> startup database to nomount state. Instance is up but not linked to the database
 			startup mount;
 			startup open;   >> ready to receive the connections
 		parameters related -
@@ -255,6 +451,10 @@ SERVER PROCESSES (SPs) -->>
 			show parameter sga_; >> list all the params with sg_ text as substring
 			alter system set sga_target=1000m scope=memory/spfile/both;  >> memory -- cleared after restart, spfile -- stored in spfile reflects after restart, both -- both
 			create pfile='/home/oracle/my_pfile.ora' from spfile;    >> this will copy all the parameters from spfile so that we can view it
+			Parameter file are of two type :
+				pfile and spfile, pfile is stored as string whereas spfile is stored as binary
+				pfile -> $ORACLE_HOME/dbs/init.ora
+				spfile - > $ORACLE_HOME/dbs/spfile[sid].ora
 		create user and permissions -
 			create user user_name identified by password;   >> if connected then displays create session privilege error
 			grant create session to user_name;    >> if create table is executed - insufficient privilege
@@ -280,7 +480,12 @@ SERVER PROCESSES (SPs) -->>
 			dba_data_files;    >> view data files, <file_name, tablespace_name> shows the datafile belonging to tablespace	
 			create tablespace tbspc_name datafile '/mnt/san_storage/oradata/dfile01.dbf' size 20m autoextend on;
 			drop tablespace tbspc_name including contents and datafiles;
-		
+		control files -
+			The database control file maintains information about the physical structure of the database
+			The control file is critical to recovering a data file because the control maintains the System Control Number (SNC) for each data file
+			Multiplexing control file will eradicate the single point of failure issue
+			CREATE CONTROLFILE is used to manually create a controlfile
+			ALTER DATABASE BACKUP CONTROL FILE TO TRACE for backup
 		
 		
 		

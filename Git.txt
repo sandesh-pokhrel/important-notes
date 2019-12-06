@@ -1,0 +1,139 @@
+- Initially developed by Linus Trovlds for Linux kernel development.
+- Free software distributed under the terms of GNU General Public License.
+- Version Control System (VCS) is a software that helps software developers to work together and maintain a complete history of their work.
+- Types ->  a) Centralized (CVCS) -> Single server, Failure is catastrophic
+			b) Distributed (DVCS) -> Repository snapshot is stored in client machine
+ 
+ 
+GIT PROTOCOLS 
+	http(s) -> in 80/443   for read-write, requires password for auth, firewall friendly   eg: https://github.com/cold-tea/something.git
+	git -> in 9418     for read-only, anonymous only              eg: git://github.com/cold-tea/something.git
+	ssh -> in 22       for read-write, SSH keys for auth          eg: git@github.com/cold-tea/something.git
+	file -> locally
+ 
+Commands ->
+	echo "# cotiviti-demo" >> README.md
+	git init
+		.git hidden folder generated.. This is where the object is stored (local repo)
+	(open .git) -> will open the git folder
+	git add README.md    /     git add .
+	git commit -m "first commit"
+	git remote add origin https://github.com/cold-tea/cotiviti-demo.git
+	git remote -> displays the origin information
+	git remote -v -> prints the repository url
+	git push -u origin master -> push to github
+	git pull origin master -> update working copy from the repo
+	git fetch <link>   -> fetches but donot merge
+	git pull <link> -> fetches + merge
+	
+	git status -s   -> check if the file is modified. 
+	git status -> check the git staging area
+	git reset -> remove from staging area
+		git reset --soft <hash>  -> return to that commit(hash) but keep changes in the staging area
+		git reset --mixed(default donot need to add this) <hash>  -> return to that commit(hash) keep changes out of the staging area
+		git reset --hard <hash>  -> return to that commit(hash) and deletes every other files not associated to that previous commit
+			-> this --hard option still donot removes the untracked file
+			-> to clean it run command (git clean -df)
+		git clean   -> removes all changes to the head of the commit
+	
+	git config --global user.name "Sandesh Pokhrel"
+	git config --global user.email "sandesh.pokhrel56@gmail.com"
+	git config --list -> lists all the configurations
+	git log      -> git log of existing commits
+	git log --stat   -> displays which file are added/subtracted/modified on commits
+	git log --oneline  -> commits in condensed form
+	git log --oneline | wc -l  -> count commits line by line
+	git log --oneline --graph  -> displays different merges and  branches happened
+	git shortlog   -> displays all the authors and the commits they have made so far
+	git shortlog -sne  -> summary, desc from num of commits, email
+	git show HEAD
+	git show HEAD~10   -> 10 step backward from the head commit
+	
+	NEED HELP->
+		git help <verb>
+		git <verb> --help
+	GITIGNORE FILE->
+		content listed in (.gitignore) will be skipped by the git (run git status to check it)
+	MISTAKE IN COMMIT MESSAGE
+		git commit --amend -m "New rectified latest commit" -> changes the last commit placed to mentioned message
+		git commit --amend  -> exit and see the new file if changed or modified will be placed on the last commit itself without placing new
+	MISTAKENLY ADDED ON ANOTHER BRANCHES
+		git cherry-pick <hash of commit from another branch to selected branch>  -> brings the commit from another branch to selected branch
+			and to another branch run (git reset --hard <previous commit hash> etc..)
+		git reflog   -> prints the action history with hash
+		git checkout <hash of hard reset log known after running (git reflog)>  
+			-> if commit is not moved to another branch and accidentally removed from this branch with hard reset then it again bring back to the hardly deleted hash if the hash provided is same
+		git branch backup  -> moves the head of the branch where accidentally removed and restoration took place to this backup branch
+		git revert <hash>   -> reverts from that <hash> to the previous one
+		git checkout <filename>    OR     git reset --hard -> get the file from the head of the commit. Reseting all uncomitted changes made to that file
+Plumbing commands ->
+	OBJECTS
+		echo "hello" | git hash-object --stdin      generates the sha1 hash object for "hello"
+			every object in the git has the sha1 -> commits, files, releases etc...
+			first 2 digit of sha1 is used as folder name, other remaining digits in actually the content
+		git cat-file <sha1 code>    -> prints out the content of that commit	
+			-p -> for the contents
+			-t -> for the type (blob or tree)
+				tree has the info about the file info inside it
+				blob is not the file name but the content inside the file
+		-- from the second commit onwards we have parent which points to the previous commit sha1
+		git tag -a mytag -m "I love cheesecake"   -> Simply a level attached to an object		
+		git tag   -> displays the list of tags
+		git cat-file [<tag-name> OR <tag-hash>]  -> in case of tag both tag name or tag hash can be given.
+			Git objects -> (blobs, trees, commits, tags)
+			
+	BRANCHES
+		git branch  -> check branches
+		git branch -a
+			all branches stored inside .git>refs>heads> <branches>  -> cat .git/refs/heads/master  prints the sha1 of last commit to trunk
+		git branch <branch-name> -> new branch created
+		git branch -d <branch-name> -> delete the branch
+		git push origin --delete <branch-name> -> commit the deleted branch change on repository
+		git checkout <branch-name> -> switch to that branch for doing work
+		git branch --merged   -> check which branch are merged into current selected branch
+		git merge <new-branch>     -> merge into master
+		git rebase <new-branch>   ->  same like merge but rewrites the commit history
+		git rebase -i <new-branch>   -> gives the opportunity to modify the commits
+	
+	CLONE
+		git remote -v -> prints the repository url
+		git clone <repo-url>
+			git clone ../local-repo.txt
+			git clone https:/<some url>
+	DIFF and MERGE
+		git diff -> displays the difference in working copy and working base
+			if git diff displays something then git status will also list something
+		git diff <hash1> <hash2> -> displays differences between two commit hashes\
+		git diff <filename>  -> check the difference in that file
+		git diff head~1..head -> diff between head and one step backward from head
+		git diff <some char of second sha>..<some char of head sha>
+		
+	ADD
+		git add -A   OR   git add --all -> add everything for the staging (recursively through every changed files and directories)
+		git add -A myDir/   OR   git add myDir/ -> everything inside that directory recursively
+		git add --no-all myDir/    OR    git add --ignore-removal myDir/     -> ignores staging of deleted files
+		git add -u   -> stage all the tracked files and folders
+		git add .    -> current directory... works recursively but doesnot come to the top like git add -A
+		
+	STASH
+		git stash save "The change is saved"   -> save the changes in stash. changes is not reflected while runnining (git status) . 
+			Useful if needs to switch to another branch making changes without commiting in present branch. The switched branch also wont notice the changes happened
+			in the particular file. The change made is also not reflected in any branches also not in the branch from where the change is made.
+		git stash list -> Lists the content in stash  (result -> stash@{0}: On master: amend.txt is modified)
+		git stash apply stash@{0}  -> bring back the changes but the stash list is not cleared
+		git stash pop  -> pop out the top from stash list and apply the changes (similar to above but clear the content)
+		git stash drop stash@{0} -> drop the record from the stash list
+		git stash clear -> clear everything from the stash
+		--useful if the change is made in one branch but supposed to be done in another. so save in stash and switch to other branch and apply changes
+	
+	DIFFMERGE tool
+		diff
+		-----
+		git config --global diff.tool diffmerge
+		git config --global difftool.diffmerge.cmd "C:/Program\ Files/SourceGear/Common/DiffMerge/sgdm.exe \"\$LOCAL\" \"\$REMOTE\""
+
+		merge
+		-------
+		git config --global merge.tool diffmerge
+		git config --global mergetool.diffmerge.trustExitCode true
+		git config --global mergetool.diffmerge.cmd "C:/Program\ Files/SourceGear/Common/DiffMerge/sgdm.exe -merge -result=\"\$MERGED\" \"\$LOCAL\" \"\$BASE\" \"\$REMOTE\""
