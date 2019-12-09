@@ -294,9 +294,6 @@ DEDICATED VS SHARED SERVERS -->>
 		Nobody is using these servers nowadays.
 		In shared servers PGA contains only stack space and SGA contains User global areas. Both are in PGA in case of dedicated servers.
 		
-	
-		
-		
 ORACLE INSTANCE -->>
 	Is loaded into the memory each time database starts (In memory nature)
 	Contains shared memory caches (Shared pool, buffer cache, redo buffer etc.)
@@ -321,7 +318,187 @@ SERVER PROCESSES (SPs) -->>
 		it then read data from disk and also load it in the buffer cache
 		
 		
+LOGICAL AND PHYSICAL DATA STRUCTURES -->>
+	Database (L) - Tablespace (L) - Data Files (P) - Segment (L) - Extent (L) - Data block (L)
+	Tablespace can contain one or more data files, whereas one datafile can be mapped to only one tablespace
+	
+	DATA BLOCK -
+		A data block is the smallest unit of storage in an Oracle database
+		Common and variable header
+			It contains the address of block, general block info, type of segment eg. data or index segment
+		Table directory
+			Info about table having the row in the block
+		Row directory
+			Info about the row for which the data is stored
+		Row data 
+			Actual area in which the data is stored
+		Free space
 		
+	TABLESPACE -
+		Three types Permanent, UNDO and Temporary
+			Permanent for storing info like tables, indexes etc...
+			UNDO for the rollback and data consistency during select
+			Temporary for storing the temp data like of join, order by etc.
+		DEFAULT tablespaces	
+			SYSTEM		- Manage the database, data dictionary and other adminstrative objects, cannot take offline, can store user data but strict no
+			SYSAUX		- Introduced after 10g, auxillary to system, some of the stuffs stored in system are now in sysaux table space, cannot take offline
+			TEMP		- Temporary table space, used to store temporary data, sort , merge, joins etc
+			UNDOTBS1	- Undo data
+			USERS		- Used to store all the data created by users by default if the tablespace for that user is not allocated
+			EXAMPLE		- This schema is created if the scripts file is ran during oracle installation, sample schemas
+			
+		Online and Offline tablespace -
+			Users can connect and read data from is tablespace is online
+			Users cannot read write if tablespace is offline, moving a datafile, recover datafile and tablespace, offline tablespace backup etc.
+			Tablespace as default will be in online state
+			
+		Useful -
+			select * from dba_data_files;
+			select * from dba_tablespaces;
+			select tablespace_name, bytes/1024/1024 blocks_in_mb from dba_free_space where tablespace_name = 'TBS1';
+			select tablespace_name, file_name, bytes/1024/1024 blocks_in_mb from dba_data_files;
+			
+			create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m autoextend on next 512k maxsize 200M;
+				autoextend on to increase the size if the initial size is full
+				next 512k is to increase the datafile size by 512 if data file is full
+				maxsize is the size till which the tablespace can be extended upto
+			create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 1m;
+			alter tablespace tbs1 add datafile '/mnt/san_storage/oradata/orcl/data02.dbf' size 5m;  -- adding datafile
+			alter tablespace tbs1 drop datafile '/mnt/san_storage/oradata/orcl/data02.dbf';  -- dropping datafile
+			drop tablespace tbs1;  -- dropping the tablespace
+			drop tablespace tbs1 including contents and datafiles; -- including datafiles and contents
+			alter tablespace tbs1 rename to tbs2;  --renaming the tablespace
+			
+			-- for renaming the datafile first take tablespace to offline
+			alter tablespace tbs1 offline;
+			alter database rename file '/mnt/san_storage/oradata/orcl/data01.dbf' to '/mnt/san_storage/oradata/orcl/data11.dbf';
+				for this, first rename data01.dbf to data11.dbf in filesystem using mv command and then run this command otherwise error
+			alter tablespace tbs1 online;
+			
+			if datafile is full - either of the three
+				alter database datafile '/mnt/san_storage/oradata/orcl/data01.dbf' resize 5m;   -- resizing
+				alter tablespace tbs1 add datafile '/mnt/san_storage/oradata/orcl/data02.dbf' size 5m; -- adding
+				create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m autoextend on; -- create tablespace with autoextend
+			
+			Tablespace with different block size
+				Bigger size needed
+					Larger tables that are the target for full table scans
+					table with larger objects (LOB's, BLOB's, CLOB's)
+					temporary tablespace for sorting
+					tables with large rows that might lead to chained/migrated rows
+				show parameter db_block_size;
+				alter system set db_16k_cache_size=60m scope=both; -- both means spfile and memory
+				show parameter db_16k_cache_size;
+				create tablespace tbs2 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m blocksize 16k;	
+		
+		TEMPORARY TABLESPACE MANAGEMENT
+			Used during joins, sorts and other temporary operations
+			select * from dba_temp_files;
+			select tablespace_name, file_name, bytes/1024/1024 blocks_in_mb from dba_temp_files;
+			alter database tempfile '/mnt/san_storage/oradata/orcl/temp01.dbf' resize 140m; -- resizing default temp tablespace
+			create temporary tablespace temp2 tempfile '/mnt/san_storage/oradata/orcl/temp02.dbf' size 20m autoextend on next 1m maxsize 60m;
+			select * from database_properties;  -- this will display various database configuration stuffs like defualt temp tablespaces etc..
+			alter database default temporary tablespace temp2;  -- sets defualt temp tablespace as temp02
+			
+		TEMPORARY TABLESPACE GROUP
+			Multiple tablespaces can be assigned to a group such that those groups can be assigned to the users
+			Group will be create while first tablespace is added and removed when the last tablespace is removed from the group
+			create temporary tablespace temp2 tempfile '/mnt/san_storage/oradata/orcl/temp02.dbf' size 20m autoextend on next 1m maxsize 60m
+				tablespace group tempgroup1 ; -- cannot be used with other types of tablespaces
+			select * from dba_tablespace_groups; -- lists all the groups
+			alter tablespace temp2 tablespace group tempgroup1;
+			select * from database_properties;
+			alter database default temporary tablespace tempgroup1;  -- sets defualt temp tablespace as the group of temp tablespaces
+			
+		LOCALLY VS DICTIONARY MANAGED TABLESPACE
+			In dictionary managed tablespace, all the extent related info is stored in the dictionary for the tablespace
+				This is slower approach as the dictionary table is to be queried to fetch the information
+				create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m autoextend on next 512k maxsize 200M
+					extent management dictionary default storage (initial 50k next 50k minextents 2 maxextents 50); -- only for 10g and before
+					
+			In dictionary managed tablespace, all the extent related info is stored within the tablespace itself
+				create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m autoextend on next 512k maxsize 200M
+					extent management local autoallocate; -- must use locally managed 11g onwards
+					
+				create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m autoextend on next 512k maxsize 200M
+					extent management local uniform size 128k; -- must use locally managed 11g onwards
+					
+					
+		UNDO DATA
+			It is the copy of pre modified data that is captured for every transaction that changes data.
+			Why ?
+				Rollback transactions
+				Support read consistent queries
+				Support flashback operations
+				Recover from failed transactions
+			How long does undo data stay ?
+				User commits the transaction
+				User rollbacks the transaction
+				User execute DDL statements (create, drop, alter, rename)
+				User session terminated abnormally (transaction rollbacks)
+				User session terminates normally with an exit (transaciton commits)
+			Where does undo data stay ?
+				Stored in undo segments/undo tablespace
+				Only 1 active tablespace for an instance
+				They are owned by the user sys
+			With 11g, automatic undo management is the default mode
+				UNDO_MANAGEMENT = AUTO / MANUAL; show parameter undo_management;
+			An auto extended UNDO tablespace named UNDOTBS1 is automatically created while creating database with DBCA.
+			SYSTEM tablespace is used , if no UNDO tablespace is defined.
+			UNDO retention period is managed very effectively. UNDO retention period is the number of seconds the committed undo data is retained.
+			Only one undo table sapce can be online at a time
+			Useful
+				alter tablespace undotbs add datafile '/mnt/san_storage/oradata/orcl/undotbs01.dbf' size 5m;  -- adding datafile
+				create undo tablespace undotbs02 datafile '/mnt/san_storage/oradata/orcl/undotbs02.dbf' size 10m reuse autoextend on next 512k maxsize 200M;
+					reuse option is used to use the datafile if already present
+				alter system set undo_tablespace=undotbs2; -- changing the used undo tablespace
+				select segment_name, owner, tablespace_name, status from dba_rollback_segs;
+			CONFIGURING UNDO RETENTION PERIOD
+				UNDO_RETENTION - 1800
+				ALTER SYSTEM SET UNDO_RETENTION = 2400
+				After a transaction is committed, undo data is no longer needed for rollback. But still it is persisted for consistent read purposes.
+				Furthermore, the success of several oracle flashback feature also depend upon the availability of older undo information
+				Useful
+					show parameter undo_retention;
+					alter system set undo_retention=2400;
+			RETENTION GUARANTEE
+				This guarantee that the data exists for the specified amount of time (UNDO_RETENTION) in the undo tablespace
+				If the space is not available in undo tablespace then it will fails any other transaction but still persist the data in the tablespace.
+				alter tablespace undotbs1 retention guarantee; -- guarantee the retention (needs the space)
+				alter tablespace undotbs1 retention noguarantee; -- doesnot guarantee
+				select tablespace_name, retention from dba_tablespaces;  -- check for the retention policy
+				
+REDO CONCEPTS -->>
+	Redo log files enable the oracle server or DBA to redo transactions if a database failure occurs
+	Only purpose is to enable recovery
+	Redo log entries from buffer is stored in the redo log files	
+	Management
+		Stores redo log files as a group, in which one group contains many redo log files stored in different disk
+		The data is written in circular fashion
+		Current log file
+			The redo log file to which LGWR is actively writing
+		Active log file
+			Log files required for instance recovery
+			Active log files cannot be overwritten by LGWR until ARCn has archived the data when archiving is enabled
+		Inactive log file
+			Log files no needed for instance recovery
+	Useful
+		select * from v$logfile;
+		select * from v$log;
+		alter database add logfile member '/mnt/san_storage/oradata/orcl/redo01b.log' to group 1;
+		alter database add logfile member '/mnt/san_storage/oradata/orcl/redo02b.log' to group 2;
+		alter database add logfile member '/mnt/san_storage/oradata/orcl/redo03b.log' to group 3;
+			now each group has 2 log files
+			by default their status will be invalid as the logwriter has not used them and will be changed once used
+			Manually we can switch the logfiles to see the result quickly.   -- alter system switch logfile;
+		alter database drop logfile group 3;  -- group 3 log files are deleted, for this the happen the group should be in inactive status
+		alter database add logfile group 3 ('/mnt/san_storage/oradata/orcl/redo03.log', '/mnt/san_storage/oradata/orcl/redo03b.log') size 10m reuse;
+			add group and the logfile within them dissimilar with the above way of addition in which we already have the group
+			reuse option is used to use the datafile if already present
+			
+			
+			
+				
 ---------------ORACLE INSTALLATION PROCESS -----------------------------------------
 	Steps:
 		i) Edit /etc/hosts file and add 	127.0.0.1	<eg:oel7.lab.local>	<eg:oel7>
@@ -377,7 +554,7 @@ SERVER PROCESSES (SPs) -->>
 				  after this run that sql file and all other sql files, 
 				datafiles etc...
 				This method is hectic , so prefer below options
-			Goto dbhome/bin folder and run "dbca"
+			Goto dbhome/bin folder and run "dbca"       //// In case of upgrade run "dbua"
 			While creating database select advanced mode and do accordingly
 			For simplicity Create as container database is not checked, if checked then pluggable database will be created too if selected accordingly
 			Oracle enterprise manager is the web interface provided through which we can manage our database as administrator
@@ -386,6 +563,8 @@ SERVER PROCESSES (SPs) -->>
 			After filling up all the required details, the database creation and the instance creation step will begin.
 		view /etc/oratab file for all the services running in the host
 			orcl:/u01/app/oracle/product/12.2.0/dbhome_1:N, here N means the instance will not run automatically after reboot
+			
+	
 		
 		
 		
@@ -429,23 +608,36 @@ SERVER PROCESSES (SPs) -->>
 		start and stop the instance -
 			alter system register;   >> force instance to connect to the listener automatically
 			shutdown - nomount - mount - open
-			nomount - 
-				only instance is started, not connected to the database, used for database creation and recovery purpose
-			mount -
-				taking the instance and associating with the database
-				only the dba can access database at this stage, no user can access, still closed
-				for enabling and disabling archive log mode
-				for renaming data files etc.
-				users cannot access the database at this stage
-				adding, dropping, renamind redo log files
-				performing database recovery
-			open -
-				all users can access the database
-			shutdown immediate;	shutdown abort; shutdown normal OR shutdown;     >> stopping the database instance
-			startup;   >> startup mount and open
-			startup nomount;   >> startup database to nomount state. Instance is up but not linked to the database
-			startup mount;
-			startup open;   >> ready to receive the connections
+			startup
+				nomount - 
+					only instance is started, not connected to the database, used for database creation and recovery purpose
+				mount -
+					taking the instance and associating with the database
+					only the dba can access database at this stage, no user can access, still closed
+					for enabling and disabling archive log mode
+					for renaming data files etc.
+					users cannot access the database at this stage
+					adding, dropping, renamind redo log files
+					performing database recovery
+				open -
+					all users can access the database
+			shutdown
+				immediate -
+					terminate all executing sql query, and disconnects the user
+					uncomitted changes are rollbacked
+					issues the checkpoints and closes all the databases
+				transactional -
+					waits for all the transactions to complete
+					prevents user from starting new transactions and creating sessions
+					oracle then perform checkpoint, disconnects all the users and close
+				normal -
+					wait for all transactions to complete
+					can start new transactions by the connected user but doesnot allow new user to connect
+					coloses the database at the end after performing checkpoint
+				abort -
+					everything will be stopped
+					instance recovery should be performed later
+
 		parameters related -
 			show parameter sga_target;
 			show parameter sga_; >> list all the params with sg_ text as substring
