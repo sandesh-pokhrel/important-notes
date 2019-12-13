@@ -857,8 +857,39 @@ POINT IN TIME RECOVERY (PITR) -->>
 			
 ------------------------------------------------------------ ORACLE 12C  -------------------------------------		
 
-
-
+MULTITENANT ARCHITECTURE -->>
+	Runs multiple oracle databases under the same Oracle instance
+	Makes running multiple Oracle databases on a single server more cost effective and easier to manage
+	Database consolidation and multitenant architecture
+	Simple management and self service
+	Rapid provisioning of new databases
+	Manage multiple DBs as a single DB
+	Dedicated pre 12c servers 
+		Assigning single server to single application
+			i.e, we have single dedicated server containing of instance, resources and database for each application
+		More servers to manage
+		DR and HA - complex  (Disaster Recovery and High Availability)
+		More licenses to buy
+		Cannot share resource easily in case workload on one is greater than another
+		More servers = more CPU cores = more money to spend on
+	Pre 12c instance consolidations
+		Single application will have a dedicated database and instance but other resources will be shared among them
+		If one application is added then one database should also be added alongside with the instance
+		Movement of one database to another server is really complex procedure to follow
+	Pre 12c schema consolidations	
+		One server, running one database but has many schemas per application running
+		Logically seperate but not physically seperates as schemas are simply logical objects
+		If same application ran by two different branches then cloning schema twice will create lot of trouble like in public synonyms etc.
+		Moving one schema to another server is also difficult as they are not physically seperated
+		Logical copy technology like data pump should be used which is no fast comparatively
+	With 12c
+		Single server, single instance, multiple databases
+		Each application will have each database
+		Backup, restoration, migration is often easier
+		Contains CDB (Container Database) and PDB (Pluggable Database)
+			CDB acts as a container to the many pluggable databases
+			CDB can be called as a super database with many sub (pluggable) databases
+			CDB contains pluggable databases (PDBs) and a root container which contains the set of oracle provided objects etc..
 	
 	
 
