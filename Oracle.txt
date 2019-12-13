@@ -750,7 +750,7 @@ POINT IN TIME RECOVERY (PITR) -->>
 							it takes more space than differential bakcup
 							it takes more time to execute
 							it should not analyze more backup sets
-							
+		---STUDY RMAN AGAIN---					
 							
 							
 	ORACLE DATA PUMP						
@@ -852,6 +852,15 @@ POINT IN TIME RECOVERY (PITR) -->>
 			create restore point DB_IS_OK guarantee flashback database;  -- running from root will create the point for all pdbs and cdb a restore point for the flashback database
 			select * from v$restore_point; -- table containing SCN, restore point name and timestamp to restore the database to
 			flashback database to restore point DB_IS_OK; -- DB_IS_OK is restore point name
+			
+			
+			
+------------------------------------------------------------ ORACLE 12C  -------------------------------------		
+
+
+
+	
+	
 
 ------------------------------------------------------------ MIGRATING NON CDB TO PDB  -------------------------------------
 
