@@ -1,3 +1,5 @@
+------------------------------------------------------------ DATABASE BASIC -------------------------------------
+
 AGGREGATE FUNCTION -->>
 	Return single value and works in a row.
 	Eg: min, max, avg etc.
@@ -120,7 +122,7 @@ PARTITIONING -->>
 		
 
 		
------------------------------------------------------------- DATABASE ADMINSTRATION -------------------------------------
+------------------------------------------------------------ DATABASE ADMINISTRATION -------------------------------------
 		
 ARCHITECTURE -->>
 	Made up of three parts - 
@@ -299,6 +301,8 @@ ORACLE INSTANCE -->>
 	Contains shared memory caches (Shared pool, buffer cache, redo buffer etc.)
 	Contains Oracle's background processes
 	Instance will be removed from the memory once it is shut down (non persistent nature)
+	One instance is mounted to only one database at a time.
+		In 12c multi tenant architecture many pluggable database are there for single container database. 
 	
 DATABASE STORAGE -->>
 	This is the storage which contains oracle files to store the data
@@ -358,10 +362,11 @@ LOGICAL AND PHYSICAL DATA STRUCTURES -->>
 			select tablespace_name, bytes/1024/1024 blocks_in_mb from dba_free_space where tablespace_name = 'TBS1';
 			select tablespace_name, file_name, bytes/1024/1024 blocks_in_mb from dba_data_files;
 			
-			create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m autoextend on next 512k maxsize 200M;
+			create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m autoextend on reuse next 512k maxsize 200M;
 				autoextend on to increase the size if the initial size is full
 				next 512k is to increase the datafile size by 512 if data file is full
 				maxsize is the size till which the tablespace can be extended upto
+				reuse option to use the datafile if exists
 			create tablespace tbs1 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 1m;
 			alter tablespace tbs1 add datafile '/mnt/san_storage/oradata/orcl/data02.dbf' size 5m;  -- adding datafile
 			alter tablespace tbs1 drop datafile '/mnt/san_storage/oradata/orcl/data02.dbf';  -- dropping datafile
@@ -496,15 +501,489 @@ REDO CONCEPTS -->>
 			add group and the logfile within them dissimilar with the above way of addition in which we already have the group
 			reuse option is used to use the datafile if already present
 			
+	REDO LOGS ARCHIVAL
+		Redo log files enable the oracle server to redo transactions if a db failure occurs
+		ARCn process is responsible for archiving redo log files
+		ARCn process only works if the database has archive log mode enabled
+		Useful
+			archive log list;   -- to view the log mode of the database
+			shutdown immediate;
+			startup mount;
+			alter database noarchivelog;  // alter database archivelog;
+			alter database open;
+			USE_DB_RECOVERY_FILE_DEST as archive destination points to the fast recovery area.
+			select thread#, sequence#, name from v$archived_log; -- view archived logs
 			
 			
+USER MANAGEMENT -->>
+	Database user account is a way to organize the ownership of database objects and access rights.
+	Each user account has
+		A unique username,
+		An authentication method
+		A temporary tablespace
+		A default tablespace
+		Account status
+		Initial consumer group
+		User profile
+	Default administrative accounts 
+		SYS - all privileges, can perform anything, owns database dictionary
+		SYSTEM - powerful account, cannot perform backup and recovery, cannot perform database upgrade
+		DBSNMP - Used by oracle enterprise manager (graphical tool provide by oracle for performing admin tasks) to monitor the database
+		SYSMAN - Used by oracle enterprise manager to perform administrative tasks
+	Useful
+		select * from session_privs;   -- to check the privileges
+		create user user_name identified by password;
+		create user user_name identified by password password expire;
+		create user john profile default identified by password profile default default tablespace USERS temporary tablespace TEMP account unlock;
+		grant connect to user_name/role;
+		grant create table to user_name [with admin option]; -- with admin option guarantees that the created user can grant that privilege to others
+		alter user user_name quota 5m on tblsp_name;  -- altering the quota on the tablespace
+		grant select any table to user_name; -- 'any' clause means the user can select tables from all schema
+		select * from dba_ts_quotas;   -- check the space of user in tab
+		lespace
+		
+		GOTO ---create user and permissions--- SECTION FOR MORE QUERIES
+		
+	SYSTEM VS OBJECT PRIVILEGE - 
+		Object privilege is the action that are allowed to be operated on certain users.
+			SELECT, UPDATE, DELETE, ALTER, EXECUTE
+			grant <object_privilege> on <object> to <grantee clause> -- general
+			grant delete on john.student to tom [with grant option]; -- perform delete on student table of john to tom user
+			........ [with grant option] --- privilege will cascade on revoke
+		System privilege are others studied
+			......[with admin option] -- with grant option is only for object privilege
+			on revoking the privilege, the revoke won't cascade in case of [with admin option] for system privilege
+			
+	USER PROFILE - 
+		Profiles are used to set limits on database resource
+		Each user can have only one profile and is by default set to 'default' profile
+		Profiles are used to control resource consumption, manage account status and password expiration
+		Resources
+			CPU, Disk, Connect Time, Idle Time, Concurrent sessions, Private SGA, etc....
+		Useful
+			select * from dba_profiles;    -- list of profiles and the list of resource names
+			select * from dba_users;  -- list of users and the profile they are in
+			create profile profile_name limit 
+				sessions_per_user 2       -- can open two sessions max
+				idle_time 5					-- can remain idle for 5 min then session is closed
+				connect_time 10;			-- can stay connected for 10 min then session is closed
+			create profile password_prf limit
+				password_life_time 180
+				password_grace_time 7
+				password_reuse_time unlimited
+				password_reuse_max unlimited
+				failed_login_attempts 10
+				password_lock_time 1
+				password_verify_function verify_function_11g;    -- many more parameters to set
 				
----------------ORACLE INSTALLATION PROCESS -----------------------------------------
+				
+NETWORKING CONCEPTS -->>
+	Oracle net service runs boths in the client and server.
+	When a user tries connecting to the database then the request first goes through the net service running in client and then to the listener.
+		client (oracle net) ---- listener ---- server (oracle net)
+	Once the connection is established, then the user process will directly interact with the server process without listener.
+	listener.ora file is present in the oracle server which has the info regarding the network related configuration parameters.
+		this file must contain protocol, host and port number. Service name is optional and should be listed if multiple services are running
+	Listener can be configured using following approaches
+		enterprise manager, oracle net manager, oracle net configuration assistant, command line
+		'netca' command can be used to run oracle net configuration assistant
+	tnsnames.ora file is used to bundle up the host, protocol, port and service name information such that those parameter can be replaced with the name during connection
+		we can directly add the tns entry inside tnsnames.ora file
+		'netmgr' tool can be launched which also let us add the entry graphically
+		
+		
+DATABASE LINKS -->>
+	Database link or dblink is the schema object which let us connect to the other database remotely
+		eg: from local branch to the headquarters host
+	Other database need not be some, it can be two different databases
+	create database link dblink_name
+		connect to schema_name_to_connect_to identified by password_name_of_that_remote_schema
+		using 'tns_entry_name';       -- creating the database link, this is private database link
+	select * from table_name@dblink; -- selecting from the remote database
+	select * from dba_db_links;  -- selecting the dblinks present in the database
+	create public database link dblink_name
+		connect to schema_name_to_connect_to identified by password_name_of_that_remote_schema
+		using 'tns_entry_name';  -- public database link, can be used by anybody on that database
+	We must have database backup before the time in which we are restoring the database
+		and the archived redo log for the period between the SCN of the backups and the target SCN (System Change Number)
+	
+		
+DATA DICTIONARY -->>
+	----Check in basic section-----
+	
+
+------------------------------------------------------------ DATABASE BACKUP AND RECOVERY -------------------------------------	
+
+COMPLETE VS INCOMPLETE RECOVERY -->>
+	Restore to a previous point in time (PITR). ---incomplete
+	Restore to a current point in time. --complete
+	
+POINT IN TIME RECOVERY (PITR) -->>
+	Combining the full backup taken at certain period of time + the archived redo log files after the backup will restore the database.
+	Archive log mode should be enabled
+		the archives are stored in DB_RECOVERY_FILE_DEST parameter size defined by DB_RECOVERY_FILE_DEST_SIZE
+
+	DATABASE FAILURE CATEGORIES -
+		Human failure
+			resolved by flashback and oracle data pump
+		Machine failure (instance failure but healthy database)
+			HA technologies and oracle RAC
+		Disk failure (healthy instance but failure in database)
+			Oracle RMAN and hot backups
+		Data center failure (whole data center failure)
+			DR (Disaster Recovery) technologies and oracle data guard
+			
+	Physical vs Logical data backups
+		Physical
+			Copying the files like Data files, Control files, Archived redo logs to other locations
+			Oracle RMAN (Recovery Manager) is used for physical backups
+		Logical
+			Exporting database objects like tables, indexes, etc..
+			Oracle data pump is used for this
+			
+	Oracle backup technologies
+		User-managed hot backups
+			Manually copy oracle data files to a seperate location to create a physical backup of the database
+			Can be done while database is running
+			Incremental backups cannot be done with this approach
+			Not used that much at recent time
+		Oracle RMAN
+			Comprehensive framework for physical backup and recovery
+			Invoked using rman command-line utility
+			supports incremental backups
+			Creates bulletproof backups
+		Data pump
+			Enables portability of data and metadata from one db to another
+			support filtering during export/import
+			Suppoert interchangeability between different versions
+		Flashback
+			provides way to view past states of the entire database or specific objects
+			Usually invoked through 'flashback' command
+			
+	Enable archivelog mode
+		show con_name;  -- make sure to be connected to container database
+		alter pluggable database all open;  -- to open all pluggable database after alter database open;
+		goto ---redo sections---	
+		
+	Fast recovery area	
+		Select * from v$database;
+		Disk or file system available to manage the backup or log files
+		It is oracle managed directory or file system
+		Usually stores archived redo logs, flashback logs, RMAN backups
+		The archives are stored in DB_RECOVERY_FILE_DEST parameter size defined by DB_RECOVERY_FILE_DEST_SIZE
+		
+	USER MANAGED BACKUPS
+		Manually copying oracle data files to a seperate location
+		start by enabling the database online 'backup mode'   -- alter database start backup;
+		finish by taking the database out of 'backup mode'		-- alter database end backup;
+			i)  Then perform copy commands and copy the required data files etc
+				If the storage device is enterprise level oracle filesystem then various useful operation are available like cloning etc.
+			ii) Now the backup of control files and archived logs.
+				control file backup ----  alter database backup controlfile to 'controlfile_backup_destination/control_file_backup.ctl'
+				archive redo log backup ---- alter system archive log current;
+												select thread#, sequence#, name from v$archived_log;
+			iii) Performing backup  --
+				use operating system utility to perform the backup
+				first copy the backup taken previously (datafiles, controlfiles and archived redo logs)
+				after that the backup is done using the recover utility of sqlplus
+				steps
+					shutdown immediate;
+					startup mount;
+					set autorecovery on;
+					show parameter log_archive_format;  -- format of the archive redo files
+					recover database;   -- displays no recovery required message if no datafiles are corrupted and no recovery is needed.
+					alter database open;
+					
+	ORACLE RMAN (Recovery Manager)
+		RMAN is the utility recommended by oracle than others methodology.
+		RMAN is used both for backup and the restoration
+		By default stored in fast recovery area
+		RMAN command line is used for everything instead of other hectic os commands.
+		Performs online database backup
+		Supports two types of backups - full and incremental backups
+			full - backing up everything
+			incremental - copy changed data blocks
+			levels of incremental backup
+				level 0 - similar to the full backup
+				level 1 - cumulative and deferential, two types
+		Backup made by RMAN is called backup set, and can only be restored using RMAN
+		Useful
+			rman target=/; -- target = <sid> -- / = default instance
+			rman target=sys/sagarmatha@orcl
+				now rman is opened like sqlplus RMAN>
+				show all; -- show all the RMAN parameters -- its result are given below
+					using target database control file instead of recovery catalog
+					RMAN configuration parameters for database with db_unique_name ORCL are:
+					CONFIGURE RETENTION POLICY TO REDUNDANCY 1; # default    -- how many level 0 backups should RMAN retain
+					CONFIGURE BACKUP OPTIMIZATION OFF; # default
+					CONFIGURE DEFAULT DEVICE TYPE TO DISK; # default    -- by default store in a disk rather than tapes etc.
+					CONFIGURE CONTROLFILE AUTOBACKUP ON; # default		-- instruct to backup control and sp file during backup
+					CONFIGURE CONTROLFILE AUTOBACKUP FORMAT FOR DEVICE TYPE DISK TO '%F'; # default
+					CONFIGURE DEVICE TYPE DISK PARALLELISM 1 BACKUP TYPE TO BACKUPSET; # default
+					CONFIGURE DATAFILE BACKUP COPIES FOR DEVICE TYPE DISK TO 1; # default
+					CONFIGURE ARCHIVELOG BACKUP COPIES FOR DEVICE TYPE DISK TO 1; # default
+					CONFIGURE MAXSETSIZE TO UNLIMITED; # default
+					CONFIGURE ENCRYPTION FOR DATABASE OFF; # default
+					CONFIGURE ENCRYPTION ALGORITHM 'AES128'; # default
+					CONFIGURE COMPRESSION ALGORITHM 'BASIC' AS OF RELEASE 'DEFAULT' OPTIMIZE FOR LOAD TRUE ; # default
+					CONFIGURE RMAN OUTPUT TO KEEP FOR 7 DAYS; # default
+					CONFIGURE ARCHIVELOG DELETION POLICY TO NONE; # default
+					CONFIGURE SNAPSHOT CONTROLFILE NAME TO '/u01/app/oracle/product/12.2.0/dbhome_1/dbs/snapcf_orcl.f'; # default
+					
+				command for manually configuring those params	
+					CONFIGURE RETENTION POLICY TO REDUNDANCY 1;
+					CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 7 DAYS;  -- retain backup for 7 days and delete older
+					
+				Useful	
+					backup database plus archivelog;  -- instructs RMAN to take backup of everything
+					backup database tag 'DAILY_BACKUP' plus archivelog;  -- use tags to identify different backups
+					backup database root;  -- only backup the root (CDB), don't backup any PDBs
+					backup pluggable database plg_db_name;  -- only backup pluggable db with name plg_db_name
+					if connected to pluggable database
+						rman plg_db_name/password@service
+						backup database plus archivelog; -- will only backup the connected pdb
+					Incremental
+						backup incremental level 0 database tag 'inc_level0' plus archivelog;
+						backup incremental level 1 database tag 'inc_level1' plus archivelog; -- least amount of data block backed up, differentiating
+						backup incremental level 1 cumulative database tag 'inc_level1' plus archivelog;
+							cumulative back ignores all other backups and only cares about last full backup
+							it takes more space than differential bakcup
+							it takes more time to execute
+							it should not analyze more backup sets
+							
+							
+							
+	ORACLE DATA PUMP						
+		Data pump is done using the utility 'expdp'
+		Useful
+			Export
+				expdp system/sagarmatha schemas=sandesh dumpfile=mydump01.dmp; -- file is dumped in the default oracle directory
+				expdp system/sagarmatha schemas=<comma seperated list of schemas> dumpfile=mydump01.dmp; -- exporting from multiple schemas
+				create directory my_exp_dir1 as '/u01/app/oracle/admin/orcl/my_export_directory'; -- will not create file system dir if not exists
+				grant read,write on directory my_exp_dir1 to public;
+				expdp system/sagarmatha schemas=sandesh dumpfile=mydump01.dmp directory=my_exp_dir1; -- exporting to the directory created
+				expdp system/sagarmatha schemas=sandesh dumpfile=mydump01.dmp directory=my_exp_dir1 logfile=mylog01.log; -- with the log file
+					-- logfile is the exact mirror of the messages during the expdp command run
+				
+				alter session set container=cdb$root; -- setting container database as the connected one
+				create pluggable database demo_PDB admin user pdb_main identified by pdb_admin file_name_convert('/u01/app/oracle/oradata/orcl12c/pdbseed/',
+					'/u01/app/oracle/oradata/orcl12c/demo_pdb/'); -- creating a pluggable database
+				alter pluggable database demo_pdb open;  -- opening the pluggable database;
+				alter session set container=demo_pdb;
+				expdp system/sagarmatha@localhost:1521/demo_pdb directory=directory_name dumpfile=demo_full.dmp; -- export content of complete pdb
+			Import
+				The exported file does not depend upon the oracle version, once exported can be imported by any other system
+				impdp system/sagarmatha@localhost:1521/orcl directory=my_exp_dir1 dumpfile=sandesh01.dmp logfile=sandesh01_IMPORT.log;
+					-- if the data already exist then it will throw the error stating data is already present
+				impdp system/sagarmatha@localhost:1521/orcl directory=my_exp_dir1 dumpfile=sandesh01.dmp logfile=sandesh01_IMPORT.log remap_schema=sandesh:success;
+					-- remap schema will remap the content of (x:y) x schema obj in dump file to the y schema
+				impdp system/sagarmatha@localhost:1521/orcl directory=my_exp_dir1 dumpfile=sandesh01.dmp logfile=sandesh01_IMPORT.log remap_schema=sandesh:success
+					INCLUDE=USER,ROLE_GRANT,SYSTEM_GRANT,TABLE,INDEX;
+					-- this specify the objects to include during import
+					-- user grants, system grants are also applied to the user
+				impdp system/sagarmatha@localhost:1521/orcl directory=my_exp_dir1 dumpfile=sandesh01.dmp logfile=sandesh01_IMPORT.log remap_schema=sandesh:success
+					EXCLUDE=VIEW;
+					-- exclude view and import everything
+			Advanced object filtering
+				expdp system/sagarmatha@localhost:1521/orcl schemas=sandesh dumpfile=mydump01.dmp directory=my_exp_dir1 logfile=mylog01.log
+					INCLUDE=TABLE:\""IN ('MY_FIRST_TABLE','ANOTHER_TABLE')\"", VIEW:\""IN ('MY_FIRST_VIEW')\"";
+					-- double quotation is used to escape how the linux file system treats double quotes
+					-- using parameter file will solve this problem
+				expdp system/sagarmatha@localhost:1521/orcl parfile=/home/Documents/params.par
+					-- providing parameter file as an argument and all other necessary arguments are passed via param file
+			Monitoring and Controlling
+				expdp system/sagarmatha schemas=sandesh dumpfile=mydump01.dmp directory=my_exp_dir1 logfile=mylog01.log full=y;
+					-- full=y refers that this export is going to run for sufficiently long period of time
+				select * from dba_datapump_jobs; -- tracking the jobs that are running as export or import data pump
+				expdp system/sagarmatha@localhost:1521/orcl attach=SYS_EXPORT_FULL_01
+					-- SYS_EXPORT_FULL_01 this is the running datapump job_name. dba_datapump_jobs table has the job info and name
+					-- entering above command will open the expdp prompt attached to that job
+					-- this provides the various info regarding the job
+					-- 'kill_job' command in expdp prompt will terminate the job
+					
+	ORACLE FLASHBACK
+		With flashback we can be at the previous timeline of database with the single command.
+		Flashback doesnot work in case of DDL statements like altering table structure etc.
+		If whole table is dropped then the recycle bin feature can be used
+		Requirements
+			Flashback query	
+				Uses data stored in undo tablespace so requires the proper undo retention policy
+				select * from student as of timestamp to_timestamp('13-DEC-19 02.28.32.771409000 PM'); -- data at time stamp before modification
+				create table old_student as select * from student as of timestamp to_timestamp('13-DEC-19 02.28.32.771409000 PM');  -- restoring old data
+				flashback table student to timestamp (systimestamp - interval '60' second);  
+					-- flashback table before 60 second
+					-- if row movement is not enabled then this query will throw error
+					alter table student enable row movement; -- altering student table to enable row movement
+						-- row id is not preserved by flashback query to enabling row movement in the table will solve this problem
+			Flashback database
+				Uses flashback logs stored in FRA
+				To enable to flashback database
+					shutdown immediate;
+					startup mount;
+					archive log list;  -- make sure that database is running with archive log mode enabled
+						-- logs used by flashback database is also stored in db_recovery_file_dest;
+							db_recovery_file_dest is also used by archived redo logs and RMAN backup
+					show parameter db_flashback_retention_target;  -- length of time flashback database supports
+					alter database flashback on;
+					alter database open;
+					alter pluggable database all open;
+					
+				To restore using flashback database
+					shutdown immediate;
+					startup mount;
+					flashback database to timestamp to_timestamp ('timestamp','format');
+						OR
+					flashback database to timestamp to_timestamp ('timestamp');
+						OR
+					SCN (System change number) can also be used for flashing back the database
+					alter database open resetlogs;
+						-- resetlogs or noresetlogs must be used
+					
+		If whole table is dropped then the recycle bin feature can be used
+			show parameter recyclebin; -- this should be on
+			flashback table student to before drop;  -- recreate the table from before drop operation
+			select * from dba_recyclebin;   -- view the content of recycle bin
+			select * from user_recyclebin;   -- view the content of recycle bin from users
+			purge recyclebin;  -- clearing recyclebin (user specific; if ran with sys then also remove object belonging to sys)
+			purge dba_recyclebin; -- clears everything from recyclebin
+			drop table student purge; -- purge will make sure that the object won't move to recycle bin once deleted
+			
+		Creating restore point
+			create restore point DB_IS_OK guarantee flashback database;  -- running from root will create the point for all pdbs and cdb a restore point for the flashback database
+			select * from v$restore_point; -- table containing SCN, restore point name and timestamp to restore the database to
+			flashback database to restore point DB_IS_OK; -- DB_IS_OK is restore point name
+
+------------------------------------------------------------ MIGRATING NON CDB TO PDB  -------------------------------------
+
+Steps for Conversion. 
+
+Step 1.  Cleanly Shutdown the Non-CDB Database Instance. 
+
+          ==- set environment to NCDB
+
+          ==- sqlplus / as sysdba
+
+          ==- Shutdown immediate 
+
+Step 2.  Once You Have Cleanly Shutdown the Database, Start Up the database in Mount Exclusive Mode and Open the Database in Read-Only Mode. 
+
+          ==- set environment to NCDB
+
+          ==- sqlplus / as sysdba        
+
+          ==- startup mount exclusive
+
+          ==- alter database open read only; 
+
+Step 3. Generate a Pluggable Database Manifest File from the Non-Container Database. 
+
+          ==- set environment to NCDB
+
+          ==- sqlplus / as sysdba        
+
+          ==- exec dbms_pdb.describe (pdb_descr_file=-'E:\app\oracle\manifest\NCDB_manifest_file.xml'); 
+
+Step 4. Shutdown the NON-CDB file Once Step 3 Completes Successfully. 
+
+          ==- Set environment to NCDB
+
+          ==- sqlplus / as sysdba
+
+          ==- shutdown immediate 
+
+Step 5. Start the CDB (CDB) if it’s Not Already Up and Check the Compatibility with CDB.
+
+          ==- set environment to CDB
+
+          ==- sqlplus / as sysdba
+
+          ==- startup (If not up)
+
+          ==- Run below at SQL prompt. 
+
+          SET SERVEROUTPUT ON;
+
+          DECLARE
+
+          Compatible CONSTANT VARCHAR2(3) :=CASE  DBMS_PDB.CHECK_PLUG_COMPATIBILITY 
+
+          (pdb_descr_file =- 'E:\app\oracle\manifest\NCDB_manifest_file.xml')
+
+          WHEN TRUE THEN 'YES'
+
+          ELSE 'NO'
+
+          END;
+
+          BEGIN
+
+          DBMS_OUTPUT.PUT_LINE(compatible);
+
+          END;
+
+          / 
+
+Step 6. Once it Completes Successfully, Query PDB_PLUG_IN_VIOLATIONS View from CDB Database for Any Errors.
+
+          ==- set environment to CDB
+
+          ==- sqlplus / as sysdba
+
+          ==- select name, cause, type, message, status from PDB_PLUG_IN_VIOLATIONS where
+
+                   name='NCDB';  
+
+Note: "There should be no violations reported. If there are any, you need to fix it before proceeding". 
+
+Step 7. Connect to the CDB Where Database has to be Plugged in Using the Noncdb Manifest File and Plug the PDDB12C Database.
+
+          ==- set environment to CDB
+
+          ==- sqlplus / as sysdba         
+
+          ==- CREATE PLUGGABLE DATABASE NCDB USING 'E:\app\oracle\manifest\NCDB_manifest_file.xml'
+
+          COPY
+
+          FILE_NAME_CONVERT = ('E:\APP\ORACLE\ORADATA\NCDB\', 'E:\app\oracle\oradata\CDB1\'); 
+
+          Note: "Below options are supported and you can chose one based on the env" 
+
+1) COPY: The datafiles of noncdb remains intact and it is copied to create PDBs at new locations and keep original datafiles intact at the original location. (This would mean that a noncdb database would still be operational after the creation of a PDB).
+
+2) MOVE: The datafiles of noncdb are moved to a new location to create a PDB. In this case, noncdb database would not be available after a PDB is created.
+
+NOCOPY: The datafiles of noncdb are used to create a PDB2 and it uses same existing location. In this case, a noncdb database would not be available after a PDB is created. 
+You can use FILE_NAME_CONVERT parameter to specify the new location of the datafiles while using COPY or MOVE option. 
+
+Step 8. Once Step 7 Completes Successfully, Switch to the PDB Container and Run the "$ORACLE_HOME/rdbms/admin/noncdb_to_pdb.sql".
+
+          ==- set environment to CDB
+
+          ==- sqlplus / as sysdba
+
+          ==- alter session set container=NCDB
+
+          ==- @$ORACLE_HOME/rdbms/admin/noncdb_to_pdb.sql 
+
+Step 9.  Startup the PDB and Check the Open Mode.
+
+          ==- set environment to CDB
+
+          ==- sqlplus / as sysdba
+
+          ==- ALTER PLUGGABLE DATABASE OPEN;
+
+          ==-SELECT name, open_mode FROM v$pdbs;
+
+		
+------------------------------------------------------------ ORACLE INSTALLATION -------------------------------------
 	Steps:
 		i) Edit /etc/hosts file and add 	127.0.0.1	<eg:oel7.lab.local>	<eg:oel7>
 			this is to resolve domain from ip and viceversa, run hostname command to resolve what to put in second parameter
 
-		ii) Resolve oracle kernel parameters as well as the group that is to be added for the oracle functioning like groupadd -g oinstall, 				groupadd -g dba, useradd -g oinstall -G dba oracle passwd oracle... This all will be done by below command
+		ii) Resolve oracle kernel parameters as well as the group that is to be added for the oracle functioning like 
+					groupadd -g oinstall, groupadd -g dba, useradd -g oinstall -G dba oracle passwd oracle... This all will be done by below command
 				yum install oracle-rdbms-server-12cR1-preinstall
 				yum install oracle-database-server-12cR2-preinstall
 			group and user are stored in /etc/group and /etc/passwd file respectively. command -->> id oracle --- will also display
