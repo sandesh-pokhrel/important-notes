@@ -890,7 +890,80 @@ MULTITENANT ARCHITECTURE -->>
 			CDB acts as a container to the many pluggable databases
 			CDB can be called as a super database with many sub (pluggable) databases
 			CDB contains pluggable databases (PDBs) and a root container which contains the set of oracle provided objects etc..
-	
+			
+	Architecture
+		Contains a container database
+		Container database consists of root container, a seed pdb and zero or many PDBs
+		Container db has the container id of 0
+		Root container contains redo logs, control files, archived logs, flashback and all other tablespaces etc.. Root container has the container id of 1
+		Seed pdb is the type of pdb which is used to create other pd. seed pdb has the container id of 2. It does not serve any application wise purpose.
+			It is named PDB$SEED
+		Undo tablespace is only contained in root container
+		System, sysaux and temp is present in alls PDBs too
+		Root container is named CDB$ROOT with container id 1
+		Upto 253 pluggable databases can be present
+		Each PDB will have its own server processes as the SPs is spawned for each user connection
+			Buffer cache will now track, which PDB does that block belong to
+			
+	connect 
+		show con_name;  -- print the container in which we are connected to	
+		sqlplus sys/sagarmatha@localhost:1521/orcl as sysdba; -- here orcl is the cdb name	
+		sqlplus my_pdb_admin/password@localhost:1521/my_new_pdb as sysdba; -- to the newly created pdb
+	create
+		create pluggable database my_new_pdb
+		admin user my_pdb_admin identified by password   -- admin user for that pdb
+		ROLES = (dba)       -- granting dba roles for the above user, otherwise user won't have any privilege
+		DEFAULT TABLESPACE my_tbs  -- default tablespace to use
+		DATAFILE '/oradata/orcl/my_new_pdb/mytbs01.dbf' size 50m autoextend on
+		file_name_convert=('/oradata/orcl/pdbseed', '/oradata/orcl/my_new_pdb')  -- clone from the seed pdb;
+	alter
+		alter pluggable database my_new_pdb open; -- opening the created pdb or closed pdb
+		alter session set container=me_new_pdb; -- to change the container without logging out and connecting to the new one
+		alter pluggable database my_new_pdb open;
+		drop pluggable database my_new_pdb <including datafiles / keep datafiles>;
+	useful	
+		select * from v$pdbs;
+		select * from v$container;
+	pdb portability
+		alter pluggable database my_new_pdb close <immediate>;
+		alter pluggable database my_new_pdb unplug into '/storage/pdb.xml'; -- this xml file is called the manifest file, containing the metadata regarding original db
+		drop pluggable database my_new_pdb keep datafiles;
+		create pluggable database my_new_pdb_replugged  using '/storage/pdb.xml' nocopy tempfile reuse; -- reuse the tempfile and donot copy anything i.e, use all datafiles
+		alter pluggable database my_new_pdb_replugged open;
+	pdb cloning
+		create pluggable database source_pdb
+		admin user my_pdb_admin identified by password
+		ROLES = (dba)
+		DEFAULT TABLESPACE my_tbs
+		DATAFILE '/oradata/orcl/my_new_pdb/mytbs01.dbf' size 50m autoextend on
+		file_name_convert=('/oradata/orcl/pdbseed', '/oradata/orcl/my_new_pdb');
+		alter pluggable database source_pdb open;
+		alter pluggable database source_pdb close;
+		alter pluggable database source_pdb open read only; -- must be in read only state
+		create pluggable database target_pdb from source_pdb file_name_convert('/oradata/orcl/source_pdb/', /oradata/orcl/target_pdb/';
+		alter pluggable database target_pdb open;
+	data dictionary view
+		cdb_,dba_,all_ and user_ dictionary views are present now
+		Each pdb has - dba_,all_ and user_ views
+		Root container has - cdb_ and all others views
+		cdb_ - all objects in all containers
+		dba_ - all objects in the database
+		all_ - all objects in the db which the user has access to
+		user_ - all objects owned by the user
+	local and common user
+		local users are the local to the database created
+		common users are for all databases i.e, cdb and pdbs
+		common user created can connect to all the database if the privilege is given
+		common user should be prefixed with c##.
+		Default scope of grant is only to the pdb from which the grant is performed.
+		local user is created using the admin user of the pdb to connect.
+			from my_new_pdb >
+				create user username identified by password;
+		common user is create from root container with sys
+			from cdb$root >
+				create user c##username identified by passsword;
+				grant create session to c##username; -- i.e, the user can only connect to the db from which the grant is performd. in this case cdb$root
+				grant create session to c##username container=all; -- now can connect to all containers
 	
 
 ------------------------------------------------------------ MIGRATING NON CDB TO PDB  -------------------------------------
