@@ -120,8 +120,457 @@ PARTITIONING -->>
 		Composite Partitioning - 
 		Automatic list Partitioning - 
 		
-
+DIRECTORY -->>
+	create directory dir_name as 'location';
+		directory cannot be renamed
+	any LOB file with size greater than 4000 byte will be stored in directory
+	
+SQL LOADER -->>
+	It is used to load the content of file in the table
+	Data is loaded permanently
+	Useful (eg.)
+		control file -
+			OPTIONS (SKIP=1) -- skip the header i.e, first row (if not required the remove this line)
+			LOAD DATA
+			INFILE 'student.csv' -- name of the text file containing data (if this is in sqlldr as data=student.csv the this infile line can be omitted)
+			APPEND  -- append , truncate
+			INTO TABLE STUDENT
+			fields terminated by ","
+			(
+				id,
+				name
+			)
+			
+			
+			OPTIONS (SKIP=1)
+			LOAD DATA          -- here infile is not mentioned as data param is mentioned through sqlldr
+			TRUNCATE
+			INTO TABLE STUDENT
+			WHEN ID <> '5000'
+			FIELDS TERMINATED BY ","
+			(
+				id,
+				name
+			)
+			
+			
+			OPTIONS (SKIP=1)
+			LOAD DATA       
+			INFILE 'student.csv'
+			BADFILE 'student_bad.csv'
+			DISCARDFILE 'student_discard.dsc'    -- here all params is mentioned so only control=student.ctl can be mentioned in sqlldr      
+			TRUNCATE
+			INTO TABLE STUDENT
+			WHEN ID <> '5000'
+			FIELDS TERMINATED BY ","
+			(
+				id,
+				name
+			)
+			
+			
+		calling through terminal
+			sqlldr userid=sandesh/sandesh control=student.ctl data=student.csv bad=student_bad.bad log=student_log.log
+			sqlldr userid=sandesh/sandesh control=student.ctl data=student.csv bad=student_bad.bad log=student_log.log discard=student_discard.dsc
+				--either provide data, control, bad, discard file in sqlldr command or in the control file
+	
+EXTERNAL TABLES -->>
+	Data won't be stored inside datbase
+	Data is stored in files
+	Similar concept as sqlloader is brought in the external table
+		Control file is not present here like in sqlloader
+	Data is not loaded permanently like sql loader
+	Directory name, datafile, field seperator and record seperator is required for this
+	Directory student_directory is created and the read write access was given to the user
+	Using data pump
+		create table student_data_pump
+		organization external
+		(
+		type oracle_datapump
+		default directory student_directory
+		location ('student_pump.dmp'))
+		as select * from student;
 		
+		here dmp file is created, student_data_pump table is created which points to the student_pump.dmp file
+			if dump file is deleted then the table will be invalid, it won't display any data
+		
+	Using oracle loader
+		create table student_external
+		(
+			id number, name varchar2(100)
+		)
+		organization external   -- specifies that it is external table
+		(
+		type oracle_loader  -- datapump can be used if the data is to be exported to file from the table (example mentioned above)
+		default directory student_directory   -- default directory, if not specified in location() then this dir will be used
+		access parameters
+		(
+		records delimited by newline
+		badfile 'ext_student.bad'
+		discardfile 'ext_discard_student.dsc'
+		logfile 'ext_student.log'
+		skip 1
+		fields terminated by ','
+		--reject rows with all null fields
+		missing field values are null
+		(id, name)   -- optional (fields)
+		)
+		location ('student.csv')      -- default directory is scanned, for using other explicitly use location(another_dir_name:'student.csv')
+		)
+		reject limit unlimited  -- optional
+		;
+	
+		records delimited and field terminated are compulsary
+		NOTE: remove all those comments inside query otherwise it will throw error (data catridge error)
+		
+		
+TABLE LOCKS -->>
+	Types - DML, DDL, Internal
+	Shared locks are shared and can be acquired by multiple users at a time whereas exclusive locks can only be acquired by a single user
+	Important
+			S	X
+		S	yes yes
+		
+		X	yes no
+		Exclusive exclusive is not allowed
+		This means: reader won't block reader, reader won't block writer, writer won't block reader but writer will block writer
+	Lock modes - Share / Row share, Share update, Exclusive / Row Exclusive / Share Row Exclusive
+		Share / Row share - Multiple users
+		Share update - Multiple users
+		Exclusive / Share Row Exclusive - Single user (specifify NOWAIT such that it won't wait for lock if already locked by other users)
+		Row Exclusive - Multiple users
+	Row level implicit locks
+		These are the implicit locks automatically placed by database
+		When one session performs any DML in one row then other session and users cannot modify it unless committed or rollbacked
+	Explicit locks
+		Different lock modes are used for the explicit locks
+		Those modes are used for explicitly locking the tables in different way
+	Practical
+		lock table student in share mode; 
+				-- can be acquirred by multiple users
+				-- if the lock is acquired by only one user then it can modify the table. Other user cannot modify
+				-- if the lock is with more than one then no one can modify the table only read is possible
+		lock table student in share update mode;
+				-- can be acquirred by multiple users
+				-- if the lock is with more than one then also the table can be modified, but same row cannot me modified 
+		lock table sandesh.student in exclusive mode nowait;
+				-- can be acquirred by only one user
+				-- if any type of lock is present with that object then exclusive lock cannot be made
+				-- other user can read the data but cannot perform any manipulation
+		lock table sandesh.student in row exclusive mode;
+				-- can be acquirred by only one user
+				-- if the lock is with more than one then also the table can be modified, but same row cannot me modified 
+				
+		SHARE
+			SHARE permits concurrent queries but prohibits updates to the locked table.
+		ROW SHARE
+			ROW SHARE permits concurrent access to the locked table but prohibits users from locking the entire table for exclusive access. 
+			ROW SHARE is synonymous with SHARE UPDATE, which is included for compatibility with earlier versions of Oracle Database.
+		SHARE UPDATE
+			See ROW SHARE.
+		EXCLUSIVE
+			EXCLUSIVE permits queries on the locked table but prohibits any other activity on it.
+		ROW EXCLUSIVE
+			ROW EXCLUSIVE is the same as ROW SHARE, but it also prohibits locking in SHARE mode. 
+			ROW EXCLUSIVE locks are automatically obtained when updating, inserting, or deleting.
+		SHARE ROW EXCLUSIVE
+			SHARE ROW EXCLUSIVE is used to look at a whole table and to allow others to look at rows in the table but 
+				to prohibit others from locking the table in SHARE mode or from updating rows.
+				
+PSEUDO-COLUMNS -->>
+	Columns that are automatically present in oracle table
+	These columns are not manipulated by the user
+	Five types of pseudo columns
+		rownum, rowid, level, currval, nextval
+		currval, nextval is for sequences
+		rowid, rownum, level is for tables
+			rowid is the physical address
+			rownum is just the sequential numbers
+			level used in hierarchical report used in connect by clause
+				connect by displays hierarchical records i.e, in tree structure
+				level will display who belongs to the top etc.
+			
+
+GENERATING OUTPUT FILES -->>
+	To spool the record or data is the way to solve this problem
+		spool /home/oracle/Documents/spool/student_spool.csv;
+		set heading off;
+		set feedback off;
+		set termout off;
+		set pages 30 lines 200;
+		set colsep ",";      -- if this line not used then tab will be field seperator
+		prompt Student Details;
+		prompt --------------------;
+		prompt -----------------------------------------;
+		select * from sandesh.student;
+		set heading on;
+		set feedback on;
+		set termout on;
+		spool off;
+		
+WITH CLAUSE -->>
+	Usage of subqueries can be minimized
+	If there are many levels of subqueries then the performance will drastically deteriorate
+	If there are more than one exactly same subquery used in a query then all query will take time to execute
+		This is solved with 'with' clause in which the subquery will only be computed once
+	Usage
+		select * from student where id in (select 9720 from dual);
+
+		with val as (select 9720 val_column from dual)
+		select * from student where id in (select val_column from val); 
+		
+CONNECT BY CLAUSE -->>
+	Used in hierarchical queries
+	(Primary key or Unique key) and foreign key column is used for this; no any constraint on both column also works but their must be some relation
+	Top - Down hierarchy and Bottom - Up hierarchy
+	Top-Down		PRIOR PK = FK | FK = PRIOR PK
+	Bottom-Up		PRIOR FK = PK | PK = PRIOR FK
+	Usage 
+		for table employee with (employee_id pk column and manager_id fk column self referencing employee_id)
+		select employee_id, last_name, job_id, manager_id, level
+		from employees
+		start with employee_id = 101	-- either at a top or bottom determined by prior keyword
+		connect by prior manager_id = employee_id;   -- here employee_id is pk so it is bottom-up hierarchy (101 will be at the bottom of the hierarchy)
+			-- i.e, 101 will have the level <last>
+		
+		select employee_id, last_name, job_id, manager_id, level
+		from employees
+		start with employee_id = 101	-- either at a top or bottom determined by prior keyword
+		connect by prior employee_id = manager_id;   -- here employee_id is pk so it is top-down hierarchy (101 will be at the top of the hierarchy)
+			-- i.e, 101 will have the level 1
+		
+MATERIALIZED VIEW -->>
+	Database view that stores pre computed results
+	Like the result of complex group by, complex aggregate , complex joins result
+	For remote database objects we create materialized view in local that's the main purpose
+		Without this the performance of whole business will be worst
+		Refresh can be done in non peak hour
+	Create materialize view is required
+	Base table must have a primary key constraint
+	If database link is being used then create database link is also required
+	Types of mat view
+		Normal
+			create materialized view view_name
+			build [immediate | deferred]    -- immediate is the default ; with deferred the data will be populated only after first refresh
+			refresh [fast | complete | force]
+			on [commit | demand]   -- instead of these time interval can also be provided
+			[[enable | disable} query rewrite]  -- disable in default
+				-- with this enabled all the aggregation and complex task is precomputed beforehand and during refresh data is inserted quickly
+			as select ....;
+		Pre-Built
+			create materialized view view_name
+			on prebuilt table
+				-- with prebuilt option, name of mat view and base table name must be same
+				-- if the base table is already referenced by other mat view then also it will throw error
+			refresh [fast | complete | force]
+			on [commit | demand]
+			[[enable | disable} query rewrite]
+			as select ....;
+	Types of refresh
+		complete - Truncate and insert fresh copy from base table (takes longer time)
+		fast - mat view log file should be present, otherwise it fails; if has more than one base table then log file should be there for all tables
+				for shorter refresh interval fast refresh is used
+				to create mat log - NOTE: create materialized view log on student;
+		force - fast refresh is attempted, if fails then complete refresh is done, log file will be read for the any changes made and the change
+				is applied
+	Types or refresh events
+		commit - refresh happens on every commits on base table
+		demand - execute dbms_mview.refresh('student_mat_view'); -- executing this
+				in general - exec dbms_mview.refresh('view_name', 'c') -- c means complete refresh
+		periodically - providing the time in mat view definition
+	Usage
+		create materialized view view_name 
+		as
+		statement;
+		
+		create materialized view student_mat_view
+		as
+		select * from student where id <= 5000;    -- complex query should be written, easy just for demo
+			-- If the table student is dropped now, then also the record in student_mat_view still persists unlike view
+			-- If the table student changes then also the change won't get reflect in the mat view
+			-- Mat view should be updated manually once the base table changes
+			
+		create materialized view mv_emp
+		refresh complete			-- whole data will be refreshed
+		start with sysdate         -- refresh starts from today
+		nex trunc(sysdate) + 1		-- next refresh is after 1 day (i.e, each day it will refresh)
+		as select ............;
+	Alter
+		alter materialized view view_name refresh complete;
+		alter materialized view view_name refresh complete start with sysdate;
+		alter materialized view view_name refresh on demand complete;
+		
+		
+------------------------------------------------------------ ORACLE PL/SQL -------------------------------------
+
+PL/SQL -->>
+	It is a procedural language i.e, we can write step by step process in it
+	It is case insensitive prog. language
+	It is platform independent
+	It is not ANSI standard
+	It uses blocks
+		Each block makes a single request to db server
+	ARCHITECTURE
+		PLSQL BLOCK is divided into procedural statements and SQL statements
+			Procedural statements are executed in PL/SQL engine
+			SQL statements in Oracle server
+		PLSQL block architecture
+			DECLARE -- optional section; contains variables, constants, cursors, exception, pragma, type, local subprograms etc.
+				-- local subprograms must at the end during declaration or PRAGMA can also be at the end
+			BEGIN	-- Mandatory section (procedural statements + sql statements)
+			EXCEPTION -- optional section (procedural statements + sql statements)
+			END;
+		Types of block
+			Nameless block (Anonymous block)
+			Named block
+				Named block are stored in db in compiled form
+	DBMS_OUTPUT.PUT_LINE -- for printing
+	DBMS_OUTPUT.PUT -- for printing in single line
+	EXECUTE DBMS_OUTPUT.ENABLE
+	EXECUTE DBMS_OUTPUT.DISABLE
+	Before printing the message serveroutput should be enabled
+		set serveroutput on;
+		show serveroutput;
+		
+		set autoprint on; -- this will print the value of variable automatically without once the plsql block is compiled
+	All variable declared inside declare section are local variables..
+	To use the global variable bind variable can be used while calling from plsql
+	Global variables are also called, host, environment and global variable.
+	
+DBMS_OUTPUT -->>
+	ENABLE			--DBMS_OUTPUT.PUT.ENABLE;
+	DISABLE			--DBMS_OUTPUT.DISABLE;
+	PUT				--DBMS_OUTPUT.PUT('');
+	PUT_LINE		--DBMS_OUTPUT.PUT_LINE('');
+	NEW_LINE		--DBMS_OUTPUT.NEW_LINE();
+	GET_LINE		--DBMS_OUTPUT.GET_LINE(input varchar out, int status out);    -- no need to use them  -- input is from previous put_line
+	GET_LINES		--DBMS_OUTPUT.GET_LINES(inputs varchar out, int statuses out);  -- no need to use them -- input is previous multiple put_line
+	
+	
+ANONYMOUS BLOCK -->>
+	Useful
+		declare
+			some_var varchar2(100) := 'Some dummy value written';
+			some_const number default 3.14;
+		begin
+			some_const := 7;
+			dbms_output.put_line(some_var || ' and PI: ' || some_const);
+		end;
+		/
+		
+	Using bind variable
+		variable person_name varchar2(20);
+		execute :person_name := 'Sandesh Pokhrel';
+
+		begin
+			dbms_output.put_line('Value of bind variable person_name is: ' || :person_name);
+		end;
+		/
+			
+	Using type of table column
+		declare
+			first_name employees.first_name%type;   -- %type and %rowtype are two plsql attributes
+			last_name employees.last_name%type;
+			v_query varchar2(1000);
+		begin
+			v_query := 'select first_name, last_name from employees where employee_id = 100';
+			select first_name, last_name into first_name, last_name from employees where employee_id = 100;
+			dbms_output.put_line('Full name is: ' || first_name || ' ' || last_name);
+			
+			execute immediate v_query into first_name, last_name;
+			dbms_output.put_line('Full name is: ' || first_name || ' ' || last_name);
+		end;
+		/
+		
+		declare
+			employee_row employees%rowtype;    -- here a table row type is used instead of individuals
+		begin
+			select first_name, last_name into employee_row.first_name, employee_row.last_name from employees where employee_id = 100;
+			select * into employee_row from employees where employee_id = 100;
+			dbms_output.put_line('Full name is: ' || employee_row.first_name || ' ' || employee_row.last_name);
+		end;
+		/
+		
+
+	set transaction read only;   -- transaction mode modified  
+	set transaction read write;  -- default mode
+	TCL and DML can be used inside plsql.
+	DDL and DCL can be used but should be used dynamically.
+	
+	Attributes
+		Two attributes in plsql
+			%type
+			%rowtype
+			
+			
+NAMED BLOCK -->>
+	Lables can be given anywhere; not only above begin; it's like a marker to indicate for goto
+	Nested Nameless block
+		declare
+			some_integer number := 100;
+		begin
+			dbms_output.put_line('From outside: ' || some_integer);
+			begin
+				dbms_output.put_line('From inside: ' || some_integer);
+			end;
+		end;
+		/
+
+	Nested Named block
+		declare
+			some_integer number := 100;
+		begin
+			dbms_output.put_line('From outside: ' || some_integer);
+			<<XYZ>>
+			begin
+				dbms_output.put_line('From inside (Named Block) : ' || some_integer);
+			end;
+		end;
+		/
+		
+	Named block
+		<<ABC>>
+		declare
+			some_integer number := 100;
+		begin
+			dbms_output.put_line('From outside: ' || some_integer);
+			<<XYZ>>
+			begin
+				dbms_output.put_line('From inside (Named Block) : ' || some_integer);
+			end;
+		end;
+		/
+		
+		Loop like implementation using labels
+		declare
+			v number := 1;
+		begin
+			dbms_output.put_line('Start: ' || v);
+			<<XYZ>>
+			dbms_output.put_line('Inside XYZ: ' || v);
+			if v>= 5 then
+				return;
+			end if;
+			v := v + 1;
+			goto XYZ;
+		end;
+		/
+		
+IDENTIFIER -->>
+	Max length 30 character
+	Allowed characters A-Z,a-z,0-9,_,$,#
+	First char must be an alphabet
+	Not case sensitive
+	Keywords are not allowed as identifiers
+	
+	
+CONTROL STRUCTURES -->>
+	Conditional - if-elsif if-else if-elsif-else.. end if;
+	Iterative - simple loop: (finite, infinite), while loop, for loop: (incremental, decremental)
+	Sequential - goto, null
+	
+			
+					
 ------------------------------------------------------------ DATABASE ADMINISTRATION -------------------------------------
 		
 ARCHITECTURE -->>
@@ -747,7 +1196,7 @@ POINT IN TIME RECOVERY (PITR) -->>
 						backup incremental level 1 database tag 'inc_level1' plus archivelog; -- least amount of data block backed up, differentiating
 						backup incremental level 1 cumulative database tag 'inc_level1' plus archivelog;
 							cumulative back ignores all other backups and only cares about last full backup
-							it takes more space than differential bakcup
+							it takes more space than differential backup
 							it takes more time to execute
 							it should not analyze more backup sets
 		---STUDY RMAN AGAIN---					
