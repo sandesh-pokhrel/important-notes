@@ -31,6 +31,9 @@ DATA DICTIONARY -->>
 	DICT - This view has the metadata regarding all the views available as oracle data dictionary
 	V${name} - These view has the dynamic info about various actions and are used primarily by adminstrators
 				V$SESSION, V$SQLAREA, V$LOCK, V$INSTANCE etc.
+	Useful
+		show errors;
+		select * from user_errors;
 				
 TRANSACTIONS -->>
 	COMMIT -
@@ -410,6 +413,7 @@ PL/SQL -->>
 	It is not ANSI standard
 	It uses blocks
 		Each block makes a single request to db server
+	select * from user_source;  -- this contains all the code required for the build of plsql procedure
 	ARCHITECTURE
 		PLSQL BLOCK is divided into procedural statements and SQL statements
 			Procedural statements are executed in PL/SQL engine
@@ -492,8 +496,8 @@ ANONYMOUS BLOCK -->>
 		/
 		
 
-	set transaction read only;   -- transaction mode modified  
-	set transaction read write;  -- default mode
+	set transaction read only;   -- transaction mode modified  ; this should be the first line of transaction otherwise error
+	set transaction read write;  -- default mode ;  this should be the first line of transaction otherwise error
 	TCL and DML can be used inside plsql.
 	DDL and DCL can be used but should be used dynamically.
 	
@@ -537,7 +541,7 @@ NAMED BLOCK -->>
 			<<XYZ>>
 			begin
 				dbms_output.put_line('From inside (Named Block) : ' || some_integer);
-			end;
+			end XYZ;
 		end;
 		/
 		
@@ -568,6 +572,204 @@ CONTROL STRUCTURES -->>
 	Conditional - if-elsif if-else if-elsif-else.. end if;
 	Iterative - simple loop: (finite, infinite), while loop, for loop: (incremental, decremental)
 	Sequential - goto, null
+	
+	Relational operators
+		<, >, <>, !=, >=, <=, AND, OR
+		
+	Simple loop
+		Infinite
+			loop
+				......
+			end loop;
+			
+		Finite
+			loop
+				....
+				exit when condition;  -- if condition never matches then also infinite
+				OR
+				if v_count = 5 then
+					exit;
+				end if;
+			end loop;
+			
+	While loop
+		while con loop
+			.....
+		end loop;
+		
+	For loop
+		FOR loop_counter IN [REVERSE] lowest_number..highest_number LOOP
+		   {...statements...}
+		END LOOP;
+		
+	Goto
+		Move the execution control to particular labels
+		Move upward or downward within begin particular
+		Move upward or downward within exception part
+		It cannot move from begin to exception or vice versa
+		Cannot move from if condition to outside and vice versa
+		Cannot move to other blocks
+		
+	Null
+		It will do nothing
+		Hust passes the execution control to next statement
+		Usage
+			begin
+				if 1=1 then
+					null;
+				end if;
+				dbms_output.put_line('After');
+			end;
+			/
+			
+OPERATORS -->>
+	:= assignment
+	.. range
+	~=, <>, !=, ^= inequality -- ~= only works in pl/sql
+	** exponentation
+	=> association
+		-- exec proc_name(5); OR exec_proc_name(proc_arg => 5);
+		
+		
+SUBPROGRAMS -->>
+	Two types
+		PROCEDURE
+			Mainly to perform an action
+			Allows all DML + TCL statements
+			Accepts all modes of parameters
+			Accepts in, out, in out parameters
+			Donot return any value directly
+			Return values through out/in out parameters
+			Cannot have return clause
+			Cannot be called in the DML statements
+			Return statement is optional in the body
+			
+			create or replace procedure p_name 
+			is
+			........ (optional)
+			begin
+			.... (mandatory)
+			end;
+			/
+			
+			execute p_name; OR exec p_name();
+			
+		FUNCTION
+			Mainly to perform an calculations
+			Allows all DML + TCL statements
+			Accepts all modes of parameters
+			
+			create or replace function f_name return number  --  return type can be anything 
+			is
+			........ (optional)
+			begin
+			.... (mandatory)
+			end;
+			/
+			
+			exec dbms_output.put_line(f_name); OR exec dbms_output.put_line(f_name());
+			select f_name from dual;
+			
+		PARAMETERS
+			IN -> Assignment cannot be performed with the parameter indicated as IN
+			OUT -> Value cannot be passed as argument for OUT, if passed then the value will be null automatically
+				-- bind variable can be passed as an out param
+			IN OUT -> value can be passed as well as it is returned
+			
+			IN, OUT, IN_OUT, Default args with default keyword and default args with assignment operator
+			Function is same, the difference is it can also return the value 
+			create or replace procedure proc_with_params 
+			(ids in number, returned out number, in_return in out number, default_val in number default 57, def_assign_val in number := 99)
+			is
+			begin
+				dbms_output.put_line('Passed returned is: ' || returned);
+				dbms_output.put_line('Passed in + returned is: ' || in_return);
+				dbms_output.put_line('Passed id is: ' || ids);
+				returned := 200;
+				in_return := 700;
+				dbms_output.put_line('Modified returned is: ' || returned);
+			end;
+			/
+
+			variable out_var number;
+			variable in_out_var number;
+			execute :out_var := 300;
+			execute :in_out_var := 200;
+			execute proc_with_params(returned => :out_var, in_return => :in_out_var, ids => 100);
+			execute dbms_output.put_line(:out_var);
+			execute dbms_output.put_line(:in_out_var);
+			
+			
+			NOTE: In case of function if it has out parameter then it cannot be called using select and any other DML statements
+					Functions with TCL cannot be called through DML statements
+					Function with DML write cannot be called through DML statements
+					
+PACKAGES -->>
+	A database object
+	Stored in database
+	It has two parts - Specification and Body
+	Package spec and body must have the same name
+	Package spec is mandatory. Pacakge body may or may not be present. Body cannot be compiled without its specs.
+	All the subprograms declared inside the spec must present in the body.
+	Body can contain subprograms that is not declared in the spec, those subprograms are local and can only be utilized from within the package.
+	Package is a collection of subprograms (procedures + functions)
+	There can be zero subprograms in the package. This is like orphan package.Body is not required for this package.
+	
+	Usage
+		-- This is an orphan package. As no subprograms are declare it does not need a body.
+		create or replace package orphan_package is
+			v_num number := 10;
+			cursor c1 is select * from employees;
+		end orphan_package;
+		/
+		execute dbms_output.put_line (orphan_package.v_num);
+		
+		
+		create or replace package emp_package as
+			v_global_unlike_in_body number;		-- This is a global variable. Accessed from all subprograms and from the outside also.
+			function func_in_package (nums in out number ) return number;
+			procedure proc_in_package (nums in out number);
+		end emp_package;
+		/
+
+		prompt create or replace package body emp_package				-- This is used for printing something in the screen
+		create or replace package body emp_package as
+			v_global number;		-- Declaring global variable for the whole package's subprograms. Can't be accessed from outside unlike that of specs.
+			function func_in_package (nums in out number) return number is
+			begin
+				nums := nums**2;
+				return nums;
+			end func_in_package;
+			
+			-- This procedure is not in the package specification
+			-- This is called local procedure as it is accessible for only the package inside this procedure
+			-- Declare this procedure above the one which is using it. Otherwise the package won't compile.
+			procedure local_procedure is
+			begin
+				dbms_output.put_line('Local procedure called');
+			end local_procedure;
+
+			procedure proc_in_package (nums in out number) is
+			begin
+				nums := nums*2;
+				dbms_output.put_line('Num * 2 = ' || nums);
+			end proc_in_package;
+			
+			-- Initialization block inside the package; This is optional; It must not contain the end statement
+			-- This is executed for the first time of the session only
+			begin
+				dbms_output.put_line('Welcome');
+		end emp_package;
+		/
+
+		variable var_bind number;
+		execute :var_bind := 5;
+		execute emp_package.proc_in_package(:var_bind);
+		print :var_bind;
+
+		execute dbms_output.put_line ('Printing from function: ' || emp_package.func_in_package(:var_bind));
+		print :var_bind;
+	
 	
 			
 					
