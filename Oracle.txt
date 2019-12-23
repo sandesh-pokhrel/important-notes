@@ -1550,6 +1550,18 @@ MULTITENANT ARCHITECTURE -->>
 		Seed pdb is the type of pdb which is used to create other pd. seed pdb has the container id of 2. It does not serve any application wise purpose.
 			It is named PDB$SEED
 		Undo tablespace is only contained in root container
+			-- This is only till oracle 12cR1. In Oracle Database 12c Release 1 all containers in an instance shared the same undo tablespace.
+			-- Now the undo tablespace can be configured with local mode on; In this case all pdbs will have undo datafile contained seperately
+			-- In Oracle 12c Release 2 each container in an instance can use its own undo tablespace
+			-- Local undo mode is the default mode in newly created databases
+			-- Switching to shared mode
+				CONN / AS SYSDBA
+				SHUTDOWN IMMEDIATE;
+				STARTUP UPGRADE;
+				ALTER DATABASE LOCAL UNDO OFF;
+				SHUTDOWN IMMEDIATE;
+				STARTUP;
+			
 		System, sysaux and temp is present in alls PDBs too
 		Root container is named CDB$ROOT with container id 1
 		Upto 253 pluggable databases can be present
