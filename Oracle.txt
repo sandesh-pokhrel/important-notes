@@ -769,6 +769,252 @@ PACKAGES -->>
 
 		execute dbms_output.put_line ('Printing from function: ' || emp_package.func_in_package(:var_bind));
 		print :var_bind;
+		
+TRIGGERS -->>
+	A trigger is a named PL/SQL block stored in the Oracle Database and executed automatically when a triggering event takes place
+	Triggers are the db objects fired at the certain event
+	Triggers can be disabled or enabled; This can also be dictated during trigger creation
+	Triggers can also call the subprograms from the body section
+	Disabling triggers for the table
+		alter table table_name disable all triggers;
+	Commits, rollbacks, savepoint cannot be performed in the triggers. It creates runtime error
+	Set transaction also creates run time error
+	Commits and rollbacks are valid only if the autonomous_transaction pragma is declared in the trigger
+		i.e, pragma autonomous_transaction;  -- declared in the declare section of trigger
+	Merge triggers can be created but it won't be fired during merge operation.
+	Insert or update trigger will be fired based on the on matched and unmatched condition in the merge statement
+	When clause cannot be used for table level triggers
+	REFERENCING can only be use if FOR EACH ROW clause is specified
+	If multiple triggers are there for same event then they will execute in the reverse order of their creation
+	Syntax
+		CREATE [OR REPLACE] TRIGGER trigger_name
+		{BEFORE | AFTER } triggering_event ON table_name
+		[FOR EACH ROW]
+		[FOLLOWS | PRECEDES another_trigger]  -- in case of compound trigger
+		[ENABLE / DISABLE ]
+		[WHEN condition]
+		DECLARE
+			declaration statements
+		BEGIN
+			executable statements
+		EXCEPTION
+			exception_handling statements
+		END;
+		
+	Types of triggers
+		Based on level - Statement + Row
+		Based on timing - Before + After
+		Based on Event - DML + DDL + DCL (DCL - grant , revoke etc.)
+			System events
+				After Startup + Before shutdown + After logon + After logoff + ServerError
+			Instead of trigger - On views only
+			Compound trigger
+			Cascading trigger
+			Recursive trigger
+			
+	Based on Level
+		Statement level
+			A statement-level trigger is fired whenever a trigger event occurs on a table regardless of how many rows are affected
+			Statement level trigger will have higher precedence than the row-level triggers
+			For example, updating 1000 rows in a table, then a statement-level trigger on that table would only be executed once
+			Due to its features, a statement-level trigger is not often used for data-related activities like auditing the changes of the data in the associated table
+			It’s typically used to enforce extra security measures on the kind of transaction that may be performed on a table
+			Usage
+				Disallowing the insert on table students from day 20 to 31 of any months
+				CREATE OR REPLACE TRIGGER students_insert_failure
+					BEFORE INSERT
+					ON students
+				DECLARE
+					l_day_of_month NUMBER;
+				BEGIN
+					-- determine the transaction type
+					l_day_of_month := EXTRACT(DAY FROM sysdate);
+				 
+					IF l_day_of_month BETWEEN 20 AND 31 THEN
+						raise_application_error(-20100,'Cannot insert students from 28th to 31st');
+					END IF;
+				END;
+				/
+				
+		Row level	
+			Row-level triggers fires once for each row affected by the triggering event such as insert, update or delete
+			Row-level triggers are useful for data-related activities such as data auditing and data validation
+			For After triggers :new.columnname cannot be assigned a value, as the data is already inserted in the table
+			For before trigers :new.comumnname can be modified such that the modified value get inserted
+			if UPDATING OR DELETEING OR INSERTING can be used to perform different action based upon those event if trigger supports all the actions
+			Problems
+				Recursion can occur if insert in performed in the insert trigger which keep on firing the trigger
+				Mutating trigger if read is also being performed and update is also being performed
+					Eg. If in after insert trigger, update is performed in body for the same table
+					Soln. Change after to before insert and simply change the value of :new.columnname. The last modified value will be inserted
+			Usage
+				create or replace trigger tg_student 
+				after insert on students
+				referencing old as old    -- this two lines can be removed, by default new in new and old is old
+				new as new
+				for each row
+				declare
+					v_remarks varchar2(100) := 'PASS';
+				begin
+					/*
+					if :new.marks < v_pass_limit then
+						v_remarks := 'FAIL';
+					end if;
+					*/
+					dbms_output.put_line('Hello ' || :new.roll);
+					--update students set remarks = v_remarks where roll = :new.roll;
+					--insert into students values (:new.roll, :new.full_name, :new.marks, v_remarks);
+					:new.remarks := v_remarks;
+				end;
+				/
+				
+	Based on events
+		DML
+			Insert, Update, Delete
+		DDL 
+			DDL triggers are not created in object like in DML
+			DDL triggers are created for schema level or for database level
+			These trigger should execute before the event (Preferred). After trigger can also be created
+			For flashback and purge trigger cannot be created
+			For comment, drop, create, alter, rename triggers can be created 
+			Usage
+				Raises error if any object is being dropped in the schema   
+				create or replace trigger stu_bef_drop 
+				before drop on schema				-- schema level trigger
+				begin
+					raise_application_error(-20001, 'You cannot drop objects');
+				end;
+				/
+				
+				Raises error if any object is being dropped in the database 
+				create or replace trigger stu_bef_drop 
+				before drop on database				-- database level trigger (dba privelege required)
+				begin
+					raise_application_error(-20001, 'You cannot drop objects');
+				end;
+				/
+		DCL
+			Trigger can be created for grant, revoke
+			Trigger cannot be created for set role 
+			
+	System events
+		After Logon
+			It cannot have before trigger, only after trigger are allowed
+			create or replace trigger logon_trigger 
+			after logon on schema			-- schema level, database level can also be create if dba 
+			begin
+				insert into tbl_audit values ('LOGON', sysdate);
+			end;
+			/
+		Before Logoff
+			It cannot have after trigger, only before trigger are allowed
+			create or replace trigger logff_trigger 
+			before logoff on schema			-- schema level, database level can also be create if dba 
+			begin
+				insert into tbl_audit values ('LOGOFF', sysdate);
+			end;
+			/
+		After Startup
+			It cannot have before trigger, only after trigger are allowed
+			create or replace trigger startup_trigger 
+			after startup on schema			-- schema level, database level can also be create if dba 
+			begin
+				insert into tbl_audit values ('STARTUP', sysdate);
+			end;
+			/
+		Before Shutdown
+			It cannot have after trigger, only before trigger are allowed
+			create or replace trigger shutdown_trigger 
+			before shutdown on schema			-- schema level, database level can also be create if dba 
+			begin
+				insert into tbl_audit values ('SHUTDOWN', sysdate);
+			end;
+			/
+		After servererror
+			It cannot have before trigger, only after trigger are allowed
+			create or replace trigger server_error_trigger 
+			after servererror on schema			-- schema level, database level can also be create if dba 
+			begin
+				insert into tbl_audit values ('SERVERERROR', sysdate);
+			end;
+			/
+			
+	Instead of Trigger
+		These triggers are only for the views, does not work on tables
+		This trigger also work either in statement or in row level
+		Main usage of this trigger is to convert the action not permitted in view to redirect it to the base table
+		Usage
+			create or replace trigger insteadof_trigger
+			instead of insert on vw_students
+			for each row
+			begin
+				dbms_output.put_line('Instead oftrigger executing');
+				insert into students (roll, full_name, marks, remarks) values (1000, :new.full_name, :new.marks, :new.remarks);
+			end;
+			/
+			
+	Conditional Trigger
+		These types of trigger provides luxury to use column names with update event
+		These can be either on statement level or in row level
+		Works only for update
+		If additional when clause is used for these trigger then make sure it is row level trigger
+		Usage
+			create or replace trigger updt_fname_student_trigger
+			after update of full_name<,....> on students		-- specifies to work only for full_name in students table
+			for each row
+			begin
+				dbms_output.put_line('Update performed on students.full_name');
+			end;
+			/
+			
+			create or replace trigger updt_fname_student_trigger
+			after update of full_name<,....> on students		-- specifies to work only for full_name in students table
+			for each row
+			when (old.full_name = 'Sandesh Pokhrel')  -- either old. or new.
+			begin
+				dbms_output.put_line('Update performed on students.full_name');
+			end;
+			/
+			
+			Multilevel action trigger
+			create or replace trigger updt_fname_student_trigger
+			after update OR insert OR delete on students		-- specifies to work only for full_name in students table
+			begin
+				if INSERTING then
+					.....
+				if DELETING then
+					.....
+				if UPDATING then
+					.....
+				end if;
+			end;
+			/
+			
+	Recursive Trigger
+		Automatic recursion is possible only in case of trigger
+		Function and procedure can also do it but it can be done manually
+		Eg: if the after update trigger on abc table is performing the update for the same table in body section
+		Try preventing this problem from happening
+		
+	Cascading Trigger
+		In this type of trigger, one trigger's body action will invoke another trigger and so on...
+		
+	Mutating Trigger
+		If the trigger body is selecting from the same table and try updating the same then the problem is called mutation
+		Try avoiding this the solution is also mentioned above
+		This can be avoided either using autonomous_transaction pragma in the trigger which will just create the seperate transaction
+		OR
+		Avoid performing the action that causes mutation
+		
+	Compound Trigger
+		If there are multiple triggers for the same event, same level, same timing
+		In default the trigger will execute in the reverse order of their creation
+		To override the default scenario follows <trigger_name> is used during trigger creation to follow which trigger during execution
+		See the trigger syntax at the top to clarify the solution
+		
+			
+				
+				
 	
 	
 			
