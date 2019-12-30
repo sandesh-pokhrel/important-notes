@@ -403,6 +403,17 @@ MATERIALIZED VIEW -->>
 		alter materialized view view_name refresh complete start with sysdate;
 		alter materialized view view_name refresh on demand complete;
 		
+TYPE -->>
+	A custom type can be created and used as the field type for oracle table
+	Usage
+		create or replace type global_type_san as varray(10) of varchar2(200);
+		create table tbl_varray (id number, varr_type global_type_san);
+		select * from tbl_varray;
+			-- varr_type has data like HR.GLOBAL_TYPE_SAN('1', 'Sandesh')
+		insert into tbl_varray values (1, global_type_san(1, 'Sandesh'));
+		select t1_alias.id, t2_alias.column_value from tbl_varray t1_alias, table(t1_alias.varr_type) t2_alias;
+			-- use table keyword to find out the cartesian product of the id column and global_type_san column which contains multiple value
+					and can be considered as the table in itself
 		
 ------------------------------------------------------------ ORACLE PL/SQL -------------------------------------
 
@@ -1013,12 +1024,285 @@ TRIGGERS -->>
 		See the trigger syntax at the top to clarify the solution
 		
 			
-				
-				
-	
-	
+COLLECTIONS -->>
+	Collections that are available in plsql
+		VArray					PLSQL / SQL
+		Associative Array		PLSQL			--- also called as Index-by-tables
+		PL/SQL Table			PLSQL / SQL
+		PLS/SQL Record			PLSQL
+		Nested Table			PLSQL
+		Object Table			SQL
+		
+	Using SQL to create type
+		create or replace type v_type as varray(10) of varchar2(500);
+		
+	Methods
+		Count	-	Total element
+		Limit	-	Size of the collection (Limit is for VArray only)
+		First	-	First element index
+		Last	-	Last element index in array
+		Prior	-	Index before the specified index (PLS_integer returned in case of varray and nested table); for others pls_integer, varchar2 etc returned
+		Next	-	Index after the specified index (PLS_integer returned in case of varray and nested table); for others pls_integer, varchar2 etc returned
+		Delete	-	Delete all (also supported on varray; other type not supported), delete(n) at that index, delete(n,m) delete from  n to m
+			-- varray is always dense so cannot delete like delete(n), delete(n,m) 
+		Extend	-	Can be used with varray and nested tables. Not with associative arrays
+					-- append single or multiple elements to the collection.
+					-- array must be initialized to use the extend
+					EXTEND, which adds a single NULL instance.
+					EXTEND(n) which adds multiple NULL instances. The number of instances is specified by n.
+					EXTEND(n,m) which appends n copies of instance m to the collection.
+		Exists	-	Check whether the element exists or not
+		
+	Multiset operations (Operations are all i.e, not union only, it is union all)
+		Union, Union Distinct, Intersect, Intersect Distinct, Except, Except Distinct
+		SQL EQUIVALENT
+		Multiset Union = Union all
+		Multiset Union all = Union all
+		Multiset Union Distinct = Union
+		Multiset Intersect = NA
+		Multiset Intersect Distinct = Intersect
+		Multiset Except = NA
+		Multiset Except Distinct = Minus
+		
+	VArray
+		VArray is varying array
+		It is fixed size collection
+		Multiset operators does not work with varray
+		Upper limit size is fixed
+		Populated sequentially starting with the subscript '1'
+		This collection type is always dense, i.e. we cannot delete any array elements. Varray can be deleted as a whole, or it can be trimmed from the end.
+		Since it always is dense in nature, it has very less flexibility.
+		It is more appropriate to use when the array size is known and to perform similar activities on all the array elements.
+		The subscript and sequence always remain stable, i.e. the subscript and count of the collection is always same.
+		They need to be initialized before using them in programs. Any operation (except EXISTS operation) on an uninitialized collection will throw an error.
+		It can be created as a database object, which is visible throughout the database or inside the subprogram, which can be used only in that subprogram.
+		Three way to declare all are same
+			type t_name is varray(5) of number;
+			type t_name2 is array(5) of student.full_name%type;
+			type t_name3 is varrying array(5) of student%rowtype;
+			-- varray, array, varrying array all are same
+		Usage
+			create or replace procedure proc_collection_demo
+			is
+				type varr_type is varray(10) of number;
+				v_type varr_type;
+			begin
+				dbms_output.put_line('Welcome to varray startup');
+				v_type := varr_type(10,20,30,40,50);
+				dbms_output.put_line('At third index: v_type(3): ' || (v_type(3) + v_type(2)));
+				dbms_output.put_line(v_type.last);
+				dbms_output.put_line(v_type.first);
+				dbms_output.put_line(v_type.limit);
+				dbms_output.put_line(v_type.count);
+				dbms_output.put_line(v_type.prior(2));
+				dbms_output.put_line(v_type.next(2));
+				v_type.extend(1,5);	-- extends the element at index 5 once
+				v_type.extend;		-- extends the element by appending null at the end
+				v_type.extend(2);	-- extends the element by appending null two times
+				v_type.delete;		-- deletes everything from the collection
+			end;
+			/
 			
-					
+			Bulk collect should be used in order to enter more than one value in array at once
+			create or replace procedure proc_collection_demo2
+			is
+				type varr_type is varray(10) of students%rowtype;
+				type varr_type2 is varying array(10) of students.full_name%type;
+				v_type varr_type;
+				v_type2 varr_type2;
+			begin
+				dbms_output.put_line('Welcome to varray startup');
+				select * bulk collect into v_type from students;
+				for i in 1..v_type.count loop
+					dbms_output.put_line(v_type(i).full_name);
+				end loop;
+				
+				select full_name bulk collect into v_type2 from students;
+				for i in 1..v_type2.count loop
+					dbms_output.put_line(v_type2(i));
+				end loop;
+			end proc_collection_demo2;
+			/
+			
+			In this example it uses varr_type column of table tbl_varray which is type of varray(10) of varchar2(200)
+			create or replace procedure proc_collection_demo3
+			is
+				varr_type tbl_varray.varr_type%type;
+			begin
+				select varr_type into varr_type from tbl_varray where id = 1;
+				varr_type.extend(1,2);
+				dbms_output.put_line(varr_type(3));
+			end;
+			/
+			
+			In this example tbl_varray is looped which contains the type as a column of varray(10)
+			Here varray of table column type is created; column itself is the type column and the bulk collect is performed
+			create or replace procedure proc_collection_demo3
+			is
+				varr_type tbl_varray.varr_type%type;
+				type varr_type2 is varray(20) of tbl_varray.varr_type%type;
+				v_type varr_type2;
+			begin
+				select varr_type bulk collect into v_type from tbl_varray where rownum <= 20;
+				select varr_type into varr_type from tbl_varray where id = 1;
+				varr_type.extend(1,2);
+				dbms_output.put_line(varr_type(3));
+				
+				for i in (select * from tbl_varray) loop
+					dbms_output.put_line('Row---------------');
+					for j in i.varr_type.first..i.varr_type.last loop
+						dbms_output.put_line('Fetching: ' || i.varr_type(j));
+					end loop;
+				end loop;
+			end proc_collection_demo3;
+			/
+			
+	PLSQL Record
+		A PL/SQL record is a composite data structure which consists of multiple fields; each has its own value
+		It cannot be initialized
+		Usage
+			create or replace procedure proc_collection_demo2
+			is
+				type v_arr is record (eno number);
+				v_type v_arr;
+				--v_type v_arr := v_arr(); -- cannot be initialized
+			begin
+				null;
+			end;
+			/
+			
+			Record created and being used by table
+			create or replace procedure proc_collection_demo2
+			is
+				type v_rec is record (name students.full_name%type);  -- record (name varchar2(200)) also allowed
+				type v_tbl is table of v_rec;
+				v_tbl_type v_tbl;
+			begin
+				select full_name bulk collect into v_tbl_type from students;
+				for i in 1..v_tbl_type.count loop
+					dbms_output.put_line('Hello: ' || v_tbl_type(i).name);
+				end loop;
+			end;
+			/
+		
+		
+			
+	PLSQL Table | Nested Table
+		The Nested table has no upper size limit.
+		Since the upper size limit is not fixed, the collection, memory needs to be extended each time before we use it. We can extend the collection using 'EXTEND' keyword.
+		Populated sequentially starting with the subscript '1'.
+		This collection type can be of both dense and sparse, i.e. we can create the collection as a dense, and we can also delete the individual array element randomly, which make it as sparse.
+		It gives more flexibility regarding deleting the array element.
+		It is stored in the system generated database table and can be used in the select query to fetch the values.
+		The subscript and sequence are not stable, i.e. the subscript and the count of the array element can vary.
+		They need to be initialized before using them in programs. Any operation (except EXISTS operation) on the uninitialized collection will throw an error.
+		It can be created as a database object, which is visible throughout the database or inside the subprogram, which can be used only in that subprogram.
+		Usage
+			Example using all multiset operations
+			create or replace procedure proc_collection_demo2
+			is
+				type v_arr is table of number;
+				v_type v_arr := v_arr(1,2,1,3,2,4,3,4,5);
+			begin
+				dbms_output.put_line('ALL VALUES--------------------------');
+				for i in v_type.first..v_type.last loop
+					dbms_output.put_line(v_type(i));
+				end loop;
+				
+				dbms_output.put_line('UNION VALUES--------------------------');
+				v_type := v_type multiset union all v_type;
+				for i in v_type.first..v_type.last loop
+					dbms_output.put_line(v_type(i));
+				end loop;
+				
+				v_type := v_arr(1,2,1,3,2,4,3,4,5);
+				dbms_output.put_line('UNION DISTINCT VALUES--------------------------');
+				v_type := v_type multiset union distinct v_type;
+				for i in v_type.first..v_type.last loop
+					dbms_output.put_line(v_type(i));
+				end loop;
+				
+				v_type := v_arr(1,2,1,3,2,4,3,4,5);
+				dbms_output.put_line('INTERSECT VALUES--------------------------');
+				v_type := v_type multiset intersect v_type;
+				for i in v_type.first..v_type.last loop
+					dbms_output.put_line(v_type(i));
+				end loop;
+				
+				v_type := v_arr(1,2,1,3,2,4,3,4,5);
+				dbms_output.put_line('INTERSECT DISTINCT VALUES--------------------------');
+				v_type := v_type multiset intersect distinct v_type;
+				for i in v_type.first..v_type.last loop
+					dbms_output.put_line(v_type(i));
+				end loop;
+				
+				v_type := v_arr(1,2,1,3,2,4,3,4,5);
+				dbms_output.put_line('EXCEPT VALUES--------------------------');
+				v_type := v_type multiset except  v_arr(1,2);
+				for i in v_type.first..v_type.last loop
+					dbms_output.put_line(v_type(i));
+				end loop;
+				
+				v_type := v_arr(1,2,1,3,2,4,3,4,5);
+				dbms_output.put_line('EXCEPT DISTINCT VALUES--------------------------');
+				v_type := v_type multiset except distinct v_arr(1,2);
+				for i in v_type.first..v_type.last loop
+					dbms_output.put_line(v_type(i));
+				end loop;
+			end;
+			/
+			
+	
+	Associative Array | Index-by-table
+		Index-by-table is a collection in which the array size is not fixed. 
+		Unlike the other collection types, in the index-by-table collection the subscript can consist be defined by the user
+		The subscript can of integer or strings. At the time of creating the collection, the subscript type should be mentioned.
+		These collections are not stored sequentially.
+		They are always sparse in nature.
+		The array size is not fixed.
+		It cannot be initialized.
+		They cannot be stored in the database column. They shall be created and used in any program in that particular session.
+		They give more flexibility in terms of maintaining subscript.
+		The subscripts can be of negative subscript sequence also.
+		They are more appropriate to use for relatively smaller collective values in which the collection can be initialized and used within the same subprograms.
+		They need not be initialized before start using them.
+		It cannot be created as a database object. It can only be created inside the subprogram, which can be used only in that subprogram.
+		BULK COLLECT cannot be used in this collection type as the subscript should be given explicitly for each record in the collection.
+		Three types of data types are supported for index: VARCHAR2, PLS_INTEGER, BINARY_INTEGER
+		Usage
+			create or replace procedure proc_collection_demo2
+			is
+				type v_arr is table of number index by pls_integer;
+				v_type v_arr; 
+				--v_type v_arr := v_arr(1,2,3,4)	-- cannot be initialized; index must provided manually
+			begin
+				v_type(1) := 4;
+				dbms_output.put_line(v_type(1));
+			end;
+			/
+			
+EXIT, RETURN, BREAK, CONTINUE -->>
+	Return
+		It is mandatory inside the function
+		Return is used to get the control out of the block
+		Return; in procedure is valid. It will take control out from the procedure
+		Return; is not valid in the function as the function must return a value
+		Statement after return won't be executed
+		
+	Exit
+		Exit will return out of the loop.
+		
+	Continue
+		It is added in latest versions. Valid in oracle 12C.
+		This will check the value and continue the loop exiting once for the condition matched
+		
+	Break
+		Not a keyword in oracle
+		
+JAVA PROCEDURE -->>
+	------ STUDY MORE -----
+	
+							
 ------------------------------------------------------------ DATABASE ADMINISTRATION -------------------------------------
 		
 ARCHITECTURE -->>
@@ -1060,8 +1344,8 @@ ARCHITECTURE -->>
 BACKGROUND PROCESSES -->>
 	DATABASE WRITER - 
 		Writes data from data buffer cache to the disk
-		Dirty  buffer = modified
-		Cold buffer = not recently
+		Dirty  buodified
+		Cold buffer = ffer = mnot recently
 		Writes the both types of buffers to the disk, such the buffer gets free space for other data.
 		Can have more than one database writer according to the need.
 		DB_WRITER_PROCESSES parameter can be used to configure more writers.
@@ -1149,6 +1433,7 @@ MEMORY STRUCTURES -->>
 			Parallel query operations
 			Oracle backup and restore operations
 			Make heavy operations use large pool instead of shared pool
+			This also stores UGA section in case of shared server architecture
 			
 		JAVA POOL and STREAMS POOL - 
 			Used to store java code and java object required for java virtual machine
@@ -1186,12 +1471,21 @@ DEDICATED VS SHARED SERVERS -->>
 		One server process is spawned for each user connection
 		Consumes lots of memory
 		Greater performance
+		Listener is responsible for spawning the server process per user connection
+			Once the server process is spawned client will directly interact through it without going through listener
+		In case of DS UGA is stored in PGA
+			For dedicated server, I will *always* have the same process - its dedicated to me - so I can keep my state in the PGA
 	Shared servers -
+		This is alternative to dedicated servers to prevent high usage of server resource
+		In this case, listener will fork a dispatcher process which is light weight process
+			Dispatcher process will then put the request in queue which will then served by shared server
+			The response from shared server is then put into response queue and then sent to respective client
 		Server processes are shared among multiple connections
 		It provides scalability
 		Here first the user request is handled through Dispatcher process and is stored in the request & response queues. Then from that shared process performs its actions.
 		Nobody is using these servers nowadays.
 		In shared servers PGA contains only stack space and SGA contains User global areas. Both are in PGA in case of dedicated servers.
+			So since I might be allocated to *any* process, I need somewhere where they can *all* see my current memory state (UGA). So it sits in the SGA.
 		
 ORACLE INSTANCE -->>
 	Is loaded into the memory each time database starts (In memory nature)
@@ -1209,7 +1503,24 @@ DATABASE STORAGE -->>
 		SAN -  Storage Area Netword (Accessed by fibre network)
 		NAS -  Netword Attached Storage 
 	Data can also be place in local disk (not recommended - single point of failure)	
-		
+	Different types of files
+		Parameter file - 
+			This file stores the info about various database characteristics
+			Without this file database cannot be taken to nomount stage
+			Types of parameter files
+				TNSNames.ora
+					Alias to connect to database
+				Listener.ora
+					Tells in which port listener will be listening
+				spfile<DBName>.ora
+					This is called database parameter file and is the most important
+					During the startup it will search for the parameter file
+					Previously it is called init<DBName>.ora
+						This is the string file which contains key value pair
+						As this is the string file, two or many file can be created and location can be sent during database startup.
+							This will create multiple point of truth and will be confusing.
+					Three parameters are enough to have in param file to start the database
+						Control file, db_block_size, db_name
 		
 SERVER PROCESSES (SPs) -->>
 	Server processes are spawned when user is trying to connect to database.
@@ -1253,6 +1564,28 @@ LOGICAL AND PHYSICAL DATA STRUCTURES -->>
 			Users cannot read write if tablespace is offline, moving a datafile, recover datafile and tablespace, offline tablespace backup etc.
 			Tablespace as default will be in online state
 			
+		Bigfile and Smallfile tablespace - 
+			An Oracle database can contain both bigfile and smallfile tablespaces.
+			System default is to create the traditional smallfile tablespace.
+			The SYSTEM and SYSAUX tablespaces are always created using the system default type.
+			Bigfile tablespaces are supported only for locally managed tablespaces with automatic segment-space management.
+			
+			Smallfile
+				By default table space is smallfile tablespace
+				Smallfile tablespace can contain multiple datafiles
+				To alter for resizing and autoextend on, we need to do it for each datafile. Cannot be done in tablespace level
+				i.e, alter database datafile '/mnt/san_storage/oradata/orcl/data01.dbf' resize 5m;
+					 alter tablespace tbs1 resize 5m; 
+						--  the error will be ORA-32773: operation not supported for smallfile tablespace TBS1
+			Bigfile
+				The bigfile tablespace simplifies large database tablespace management by reducing the number of datafiles needed.
+				The bigfile tablespace simplifies datafile management with Oracle-managed files and Automated Storage Management (ASM) by eliminating the need for adding new datafiles and dealing with multiple files.
+				The bigfile tablespace allows us to create a bigfile tablespace of up to eight exabytes (eight million terabytes) in size, and significantly increase the storage capacity of an Oracle database.
+				The bigfile tablespace follows the concept that a tablespace and a datafile are logically equivalent.
+				For creating bigfile tablespace we should explicitly define the type
+				Bigfile tablespace can only contain one file
+				Altering on tablespace level is also allowed in here
+			
 		Useful -
 			select * from dba_data_files;
 			select * from dba_tablespaces;
@@ -1294,6 +1627,9 @@ LOGICAL AND PHYSICAL DATA STRUCTURES -->>
 				create tablespace tbs2 datafile '/mnt/san_storage/oradata/orcl/data01.dbf' size 10m blocksize 16k;	
 		
 		TEMPORARY TABLESPACE MANAGEMENT
+			This is the tablespace in which temporary data are stored like sort, groupby, etc.
+			By default user are assigned to temp tablespace.
+			We can create other temp table space and alter user to belong to that temp tablespace.
 			Used during joins, sorts and other temporary operations
 			select * from dba_temp_files;
 			select tablespace_name, file_name, bytes/1024/1024 blocks_in_mb from dba_temp_files;
@@ -1328,6 +1664,7 @@ LOGICAL AND PHYSICAL DATA STRUCTURES -->>
 					
 		UNDO DATA
 			It is the copy of pre modified data that is captured for every transaction that changes data.
+			
 			Why ?
 				Rollback transactions
 				Support read consistent queries
@@ -1997,6 +2334,54 @@ Step 9.  Startup the PDB and Check the Open Mode.
           ==- ALTER PLUGGABLE DATABASE OPEN;
 
           ==-SELECT name, open_mode FROM v$pdbs;
+		  
+		  
+		  
+------------------------------------------------------------ DATABASE SECURITY -------------------------------------
+DATABASE AUTHENTICATION -->>
+	Authenticating the user before providing access to the database
+	When user tries to connect password should be provided beforehand
+	Or in the system like web based app, single user can be created for database and multiple users to connect to the web server
+	Other modes of authentication
+		Username and password authentication
+		Operating system based authentication
+		Network based authentication (Kerberos)
+		Directory based authentication (Active directory users)
+	After authentication, authorization and permissions should also be cared about
+		
+ADVANCED SECURITY CONCEPTS -->>
+		Database Auditing
+			Make database users accountable for their actions
+			i.e, Track the actions performed by authorized user on the actions they are privileged to perform
+			Their is built in auditing feature provided in Oracle which can help tracking the unnecessary and suspicious pattern performed in the database
+			Allows the tracking of both successful and failed activities
+				-- if tried to access the data i.e, not allowed
+		Database Encryption
+			There two major types of encryption
+				Data-at-rest encryption
+					Encrypting the data stored in the database itself
+					If anyone get hold of the storage devices then also they won't be able to steal any information
+					Oracle provides built in feature to for this
+						Transparent Data Encryption (TDE)
+							With this feature enabled encryption-decryption is performed automatically
+							Data will be automatically encrypted during writes and automatically decrypted during reads
+							It does not care about the type of disk used
+							It is easy and convinient way of encryption
+				Network encryption
+					Data is encrypted at network level
+					Incoming and Outgoing data are encrypted
+		Roles of DBA in DB Security
+			DBA is responsible for implementing security architecture
+				Create users and assign permissions
+				Granting minimum set of permissions
+				Create suitable roles to be granted for the group of people
+				Minimize the creation of superusers
+				Enable and configure DB auditing.
+				Set alert in case of anu unwanted tasks
+				Enable encryption; encrypt both data and data backups
+				
+USERS AND PERMISSIONS -->>
+	
 
 		
 ------------------------------------------------------------ ORACLE INSTALLATION -------------------------------------
