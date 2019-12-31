@@ -1184,6 +1184,39 @@ COLLECTIONS -->>
 				end loop;
 			end;
 			/
+			
+			This example uses record and associative array concept
+			DECLARE
+			  CURSOR c1 IS SELECT hedis_tablename FROM lkp_hedis_counts;
+			  vquery VARCHAR2(500);
+			  v_tbl_without_in VARCHAR2(50);
+			  name   VARCHAR2(20); 
+			  type type_rec is record (query VARCHAR2(500), status char);
+			  v_rec type_rec;                                                
+			  TYPE tbl_type IS table OF type_rec INDEX BY VARCHAR2(50);
+			  v_type tbl_type;
+			BEGIN                       
+			  FOR hed_tblname IN c1 LOOP
+					v_tbl_without_in := SubStr(hed_tblname.hedis_tablename, 1, InStr(Lower(hed_tblname.hedis_tablename), '_in', -1) - 1);
+					vquery := 'rename ' || v_tbl_without_in || ' to ' || hed_tblname.hedis_tablename;
+					v_rec.query := vquery; v_rec.status := 'C'; 
+					begin
+					  EXECUTE IMMEDIATE vquery;
+					EXCEPTION WHEN OTHERS THEN
+					  v_rec.status := 'E';
+					END;
+					v_type(v_tbl_without_in) := v_rec;
+			  END LOOP;
+			  name := v_type.FIRST; 
+			  Dbms_Output.put_line('Statement executed ------------------------------------');
+			  WHILE name IS NOT null LOOP 
+				Dbms_Output.put_line(name || ' : ' || v_type(name).query || ' -->> ' || v_type(name).status);
+				name := v_type.NEXT(name); 
+			  END LOOP;
+			EXCEPTION WHEN OTHERS THEN
+			  Dbms_Output.put_line('Some error!!! Check this whole block..');
+			END;
+			/
 		
 		
 			
@@ -1770,9 +1803,9 @@ USER MANAGEMENT -->>
 		create user user_name identified by password password expire;
 		create user john profile default identified by password profile default default tablespace USERS temporary tablespace TEMP account unlock;
 		grant connect to user_name/role;
-		grant create table to user_name [with admin option]; -- with admin option guarantees that the created user can grant that privilege to others
-		alter user user_name quota 5m on tblsp_name;  -- altering the quota on the tablespace
-		grant select any table to user_name; -- 'any' clause means the user can select tables from all schema
+		grant create tablquota 5m on tblsp_name;  -- altering the quota on the tablespace
+		grant select any to user_name [with admin option]; -- with admin option guarantees that the created user can grant that privilege to others
+		alter user user_name  table to user_name; -- 'any' clause means the user can select tables from all schema
 		select * from dba_ts_quotas;   -- check the space of user in tab
 		lespace
 		
@@ -1787,6 +1820,15 @@ USER MANAGEMENT -->>
 		System privilege are others studied
 			......[with admin option] -- with grant option is only for object privilege
 			on revoking the privilege, the revoke won't cascade in case of [with admin option] for system privilege
+			
+	DATABASE-WIDE SYSTEM PRIVILEGE - 
+		Any keyword is used to provide database wide system privilege
+		Any system privilege is powerful
+		grant create any table to user_name; -- can create table in any schemas
+		grant alter any table to user_name;
+		grant drop any view to user_name;
+		grant execute any procedure to user_name;
+		The SELECT ANY TABLE, INSERT ANY TABLE, UPDATE ANY TABLE, or DELETE ANY TABLE system privileges
 			
 	USER PROFILE - 
 		Profiles are used to set limits on database resource
@@ -2381,8 +2423,165 @@ ADVANCED SECURITY CONCEPTS -->>
 				Enable encryption; encrypt both data and data backups
 				
 USERS AND PERMISSIONS -->>
-	
-
+	Goto USER MANAGEMENT section for the further information regarding it
+	Users and Schemas are essentially same thing in case of oracle.
+		Once the user is created, schema is also created alongside the user
+		User cannot be created seperately to the schema and vice versa
+	SYS	
+		Sys user is the most powerful user in the database
+		Beware while connecting with the sys user and performing any action in the database
+		'as sysdba' clause should be used while connecting with the sys user; for sysdba the schema is sys
+		'as sysoper' clause can also be used while connecting with sys; It will restrict from performing some of the tasks; schema is public for sysoper
+			With this other user data cannot be viewed
+	SYSTEM
+		Created automatically during installation and the dba role is granted by default
+	Use grant command to assign privilege or role to the user
+	Revoke can be used to revoke the permission already granted to the user
+	Beware while providing any database-wide system privilege (any keyword); Goto USER MANAGEMENT for futher info
+	Tablespace quotas
+		Cannot insert any records if the quota for that user is not specified in the tablespace
+		ORA-01950: no privileges on tablespace 'tablespace_name'
+		alter user user_name quota <1g OR [unlimited]> on tablespace_name;
+		grant unlimited tablespace to user_name; -- this is also possible
+	Object privilege should be cared out as like the system privilege
+		Object privilege is given to the specified database object
+		i.e, grant select on user2.table_name to user1;
+			 grant execute on user2.proc_name to user1;
+			 Grant grant any object privilege to user1; -- user1 can grant any object privilege
+	Password Management Policies
+		Goto USER MANAGEMENT for futher info; Creating the appropriate profile is discussed
+	With [GRANT/ADMIN] Option
+		with grant option - is for the object privilege; to whom it is grant can also grant the same level of access
+		with admin option - is for the system privilege; same
+		Goto USER MANAGEMENT for futher info
+	Password Complexity Policy
+		It is best to use the complex password for the sake of security enforcement
+		Need to run sql file in - $ORACLE_HOME/rdbms/admin/utlpwdmg.sql
+			This folder contains other various sql files too
+			This script will compile a password verification function in the database
+			In case of 12c it will create two functions
+				sys.ora12c_verify_function
+				sys.ora12c_strong_verify_function
+			alter profile profile_name limit password_verify_function ora12c_strong_verify_function;
+			alter profile profile_name limit password_verify_function null;
+				-- with this password_verify_function is changed from ora12c_verify_function to ora12c_strong_verify_function
+	Viewing user, permissions, and policies
+		Query dba_users views to see authentication method, account_st, last_time_login etc.
+		select * from dba_sys_privs; -- system privilege
+		select * from dba_tab_privs; -- object privilege
+		select * from dba_role_privs; -- roles assigned i.e, the group of privileges
+		select * from session_privs; -- session privilege
+	Deleting a user account
+		drop user user_name; -- if user_name has no ownership on any objects
+		drop user user_name cascade; -- if user_name has ownership
+	Local vs Common user
+		Refer ORACLE 12C for this
+	Seperating Schemas and Users
+		Inseperable
+		One way to try seperating
+			Create everything in one schema that makes sense. For eg, CRM app data in CRM user
+			Lock the CRM user after creating everything
+			Then create seperate different users and provide them privilege accordingly
+			
+DATABASE ROLES -->>
+	Using roles user permissions can be grouped together such that it can be granted to the users
+	Built-in roles
+		connect -> creating different things
+		resource -> creating different things
+		dba -> all system privileges with admin option
+		pdb_dba
+	Creating, assigning and dropping roles
+		create role role_name;
+		grant <privileges> to role_name;
+		create user user_name identified by password_name;
+		grant role_name to user_name;
+		revoke role_name from user_name;
+		drop role role_name;
+	Viewing roles
+		select * from dba_role_privs; -- user and the role granted to them
+		select * from role_tab_privs; -- different object role privilege given to the role
+		select * from role_sys_privs; -- different system role privilege given to the role
+		select * from role_role_privs; -- role granted to other roles
+	Roles with admin option
+		if roles is granted with admin option then the user can grant that role to other users
+		
+DATABASE AUDITING -->>
+	Auditing is done to both privileged and non-privileged user about their actions
+	Configure audit parameters
+		show parameter audit_trail; -- DB means stored in DB level; OS means in OS file
+		show parameter audit_sys_operations; -- if sys user should be audited or not
+		show parameter audit_file_dest; -- destination used if OS or XML option is used; action done by sys user is by default stored in there ; check it
+		select value from v$option where parameter='Unified Auditing';
+		unified_audit_trail - query this view to check the different unified source used for editing
+			The unified auditing is introduced from oracle 12C
+			This dramatically simplified the auditing process
+		audit_unified_enabled_policies - query this to view which users or roles have been enabled to be audited by policies
+		dba_audit_trail			show all audit entries in the system
+		dba_audit_object		show all audit entries in the system for objects
+		dba_audit_statement		show audit entries for statements grant, revoke, audit, noaudit, and alter system
+		dba_audit_session		show audit entries for the connect and disconnect actions
+		 -- In 12c the unified audit trail simplifies viewing and reporting audit information
+		 -- Just viewing unified_audit_trail is enough to find out various informations
+	Usage
+		create audit policy audit_policy1
+		privileges create table
+		when 'sys_context(''USERENV'', ''SESSION_USER'') = ''USER1'''
+		EVALUATE PER SESSION
+		CONTAINER = CURRENT;
+			-- in current container, can be set to all from root, evaluate per session for USER1 and if create table is done
+			
+		create audit policy audit_policy2
+		actions all on user_name.object_name; 
+			-- audit all the actions performed on object object_name
+			
+		create audit policy audit_policy3
+		actions insert on user_name.object_name; 
+			-- audit insert actions performed on object object_name
+			
+		audit policy audit_policy1;
+		audit policy audit_policy2;
+		audit policy audit_policy3;
+			-- enabling audit policies
+			-- without this those created audit policies won't work
+			
+		noaudit policy audit_policy1;
+			-- disabling the audit without deleting them
+			
+		drop policy audit_policy1;
+			-- dropping the audit policies
+		
+		select * from audit_unified_policies;
+			-- viewing audit policies created
+			
+	Using Standard Auditing
+		audit select table, insert table, delete table, execute procedure by access whenever not successful;
+			-- this query if ran will audit all mentioned actions in the database if not successful
+		audit create session whenever not successful;
+			-- if connection is not successful
+		audit select on user_name.object_name;	
+			-- object level auditing
+		noaudit select on user_name.object_name;
+			-- disable object level auditing
+			
+		Audit information are stored in dba_audit_trail;
+		
+	Fine-grained Auditing (FGA)
+		All Standard, Unified and Fine-grained auditing are built-in auditing technique create in oracle database
+		As the name suggests it allows fine-grained auditing to the columns of the table also
+		If just a column is sensitive then why not audit that particular table only
+		Usage
+			exec dbms_fga.add_policy(object_schema=>'user_name', object_name=>'my_tblname', policy_name=>'check_col2_access',
+			audit_column=>'col2', statement_types=>'select, update');
+				-- audit for any select and update action performed in column col2 of table my_tblname
+				
+			dba_audit_policies
+				-- check this view for the created FGA policies
+			dba_fga_audit_trail
+				-- check this view for the audit information triggered by FGA audit policies
+			
+	Manage the audit trail
+		
+			
 		
 ------------------------------------------------------------ ORACLE INSTALLATION -------------------------------------
 	Steps:
