@@ -2380,6 +2380,7 @@ Step 9.  Startup the PDB and Check the Open Mode.
 		  
 		  
 ------------------------------------------------------------ DATABASE SECURITY -------------------------------------
+
 DATABASE AUTHENTICATION -->>
 	Authenticating the user before providing access to the database
 	When user tries to connect password should be provided beforehand
@@ -2405,6 +2406,8 @@ ADVANCED SECURITY CONCEPTS -->>
 					If anyone get hold of the storage devices then also they won't be able to steal any information
 					Oracle provides built in feature to for this
 						Transparent Data Encryption (TDE)
+							TDE with its name suggests the transparent data encryption and decryption
+								i.e, decrypt during read
 							With this feature enabled encryption-decryption is performed automatically
 							Data will be automatically encrypted during writes and automatically decrypted during reads
 							It does not care about the type of disk used
@@ -2580,7 +2583,197 @@ DATABASE AUDITING -->>
 				-- check this view for the audit information triggered by FGA audit policies
 			
 	Manage the audit trail
-		
+		Different aspects should be taken care of regularly for the audit to function properly
+		If the space is filled and the audit has no workspace then the database will actually freeze due to its enability to maintain the record
+		In case of denial of attack audit table can grow enormously
+		SYSTEM tablespace is used to store the audit trail so something that should be taken care about
+		Cleanup procedure
+			Archiving existing log details of audit table should be done before purging
+			This can be called only once, if tried to call again then 'audit trail cleanup initialization has already happened' error will be thrown
+			begin
+				dbms_audit_mgmt.init_cleanup(
+					audit_trail_type => dbms_audit_mgmt.audit_trail_all,
+					default_cleanup_interval => 12
+				);
+			end;
+			/
+				-- after running this query aud$ table will be moved to sysaux tablespace from system tablespace
+				-- after moving to sysaux tablespace it is little safer for space not running up
+				
+			dbms_audit_mgmt.clean_audit_trail(
+				audit_trail_type	=> dbms_audit_mgmt.audit_trail_aud_std,
+				use_last_arch_timestamp => false,
+				container	=> dbms_audit_mgmt.container_current);
+			end;
+			/
+				-- this will purge the record from standard audit table aud$
+				-- aud$ table is the base for all standard auditing views
+				
+			dbms_audit_mgmt.clean_audit_trail(
+				audit_trail_type	=> dbms_audit_mgmt.audit_trail_fga_std,
+				use_last_arch_timestamp => false,
+				container	=> dbms_audit_mgmt.container_current);
+			end;
+			/
+				-- this will purge the record for FGA audit trail table (dba_fga_audit_trail)
+				-- fga_log$ table is the base for dba_fga_audit_trail
+				
+			dbms_audit_mgmt.clean_audit_trail(
+				audit_trail_type	=> dbms_audit_mgmt.audit_trail_unified,
+				use_last_arch_timestamp => false,
+				container	=> dbms_audit_mgmt.container_current);
+			end;
+			/
+				-- this will purge the record for unified audit trail table (unified_audit_trail)
+				-- audsys.aud$unified table is the base for unified_audit_trail
+				
+DATA ENCRYPTION -->>
+	Goto ADVANCED SECURITY CONCEPTS for further clarification
+	Data-at-rest encryption will be discussed in this
+	For this to work we need to create TDE (Transparent Data Encryption) keyfile 
+	Configure the keystore
+		mkdir $ORACLE_HOME/wallet	-- any directory will work but creating this
+		edit $ORACLE_HOME/network/admin/sqlnet.ora file and add following line
+			encryption_wallet_location=
+			(source=
+			 (method=file)
+			 (method_data=
+			  (directory=$ORACLE_HOME/wallet)))
+		now create password based software keystore
+			this requires password from user which is used to protect the keys in the keystore
+			administer key management create keystore '$ORACLE_HOME/wallet' IDENTIFIED BY secret_keystore_password; -- for creating keystore	
+				-- password can be changed
+		goto $ORACLE_HOME/wallet, keystore will be created here after running above query
+		now open the wallet created
+			administer key management set keystore open identified by secret_keystore_password container=all;
+				-- container=all can only be executed if connected in container database
+	Create encryption key	
+		Set the master encryption key
+		This is the key which will be used by TDE method will use during encryption
+		administer key management set key identified by secret_keystore_password with backup container=all;
+			-- container=all can only be executed if connected in container database
+			-- with backup option enables the backup of the key and is required for this type of keystore
+	Encrypting data in tables
+		It encrypts and decrypts data in SQL layer
+		Using this we can try encrypting a single column or some columns according to the needs
+		In case of sensitive data stored in certain table we can try encrypting that column only
+		Connect as the user i,e. owner for the table to encrypt
+			alter table table_name add (new_col varchar2(10) encrypt);
+			alter table table_name modify (already_present_tbl encrypt);
+			alter table table_name modify (already_present_tbl decrypt);
+			desc table_name; -- this will show if table's column is encrypted
+			select * from table_name;
+				-- if has encrypted column then also the data is displayed as it is
+			create index index_name on table_name (encrypted_key_column);
+				-- this will throw error
+				--  cannot be both indexed and encrypted with salt
+			alter table table_name modify (encrypted_key_column encrypt no salt);
+				-- disabling salt, now index can be create in that column
+				-- column should be encrypted with no salt for the index to be created in that column
+			create table table_name (
+				first_name varchar2(100),
+				last_name varchar2(100),
+				id varchar2(10) encrypt using '3DES168'
+			);
+				-- explicitly specified the encryption technique
+			alter table table_name rekey using 'AES128';
+				-- changing preciously defined encryption technique
+	Encrypting tablespaces
+		If many objects needs to be encrypted as a whole then tablespace encryption is useful
+		Encrypts data during read and write
+		This method encrypts whole tablespace
+		Some restriction like index creation failure in column level encryption doesnot occur here
+		Usage
+			create tablespace tbs_name_encrypt
+			datafile '/mnt/san_storage/oradata/oracle/encrypt_01.dbf' size 1m
+			encryption using 'AES256'
+			default storage (encrypt);
+				-- tablespace created with encryption enabled
+				
+		create table in that tablespace
+			create table table_name(....) tablespace tbs_name_encrypt;
+			insert into table_name values (....);
+	Column vs tablespace encryption
+		The advantage of using TDE column is we only have the encryption/decryption overhead when accessing that column
+		If there are only 1 or 2 columns to encrypt then column level encryption is best suited
+		If performance is critical then it is best suited to go with column level encryption
+		We add "salt" (extra data) to the column text before encrypting it. This increases the space used
+			-- We have control over the salt, but by default, it will increase the data
+		Cannot use column encryption to encrypt foreign key column
+		Tablespace-level saves our time analyzing which columns store sensitive data
+		Everything's encrypted. So we don't need to debate what to encrypt
+	Encrypting data pump backups
+		Encrypting the backups is as important as encrypting the data itself
+		Oracle directly supports this capabilities
+		Usage
+			expdp system/sagarmatha@orcl dumpfile=test.dmp schemas=user_name encryption=<all/data_only/metadata_only/encrypted_columns_only>;
+				-- all means both metadata and data is encrypted
+				-- encrypted_columns_only means only encrypted columns will be encrypted in backup
+				-- this used the password from wallet during encryption
+			expdp system/sagarmatha@orcl dumpfile=test.dmp schemas=user_name encryption=<all/data_only/metadata_only/encrypted_columns_only>
+				encryption_mode=password encryption_password=secret;
+				-- if the dump file is imported then that specified custom password should be used in this case
+				-- if tried to import without password then error thrown is 'encryption password must be supplied'
+				-- encryption_password should also be provided during import
+	Encrypting RMAN backups
+		RMAN supports three modes of encryption
+			Transparent
+			Password
+			Dual -> Use both transparent or password
+		Usage
+			rman target /
+			Run following
+				set encryption on;	-- instructs to use transparent encryption by default
+				run
+				{
+					allocate channel d1 device type disk;
+					backup pluggable database orcl tag=transparent_encrypted; -- instructs to backup database orcl
+				}
+				
+				set encryption on identified by 'Secret!' only;	-- password mode encryption
+				run
+				{
+					allocate channel d1 device type disk;
+					backup pluggable database orcl tag=password_encrypted; -- instructs to backup database orcl
+				}
+				
+				set encryption on identified by 'Secret!';	-- dual mode encryption
+				run
+				{
+					allocate channel d1 device type disk;
+					backup pluggable database orcl tag=dual_encrypted; -- instructs to backup database orcl
+				}
+	Restore RMAN backups
+		Usage
+			Running this will throw error because password is not provided for restoration
+			run
+			{
+				alter pluggable database orcl close;
+				allocate channel d1 device type disk;
+				restore pluggable database orcl from tag=password_encrypted;
+				restore pluggable database orcl;
+				alter pluggable database orcl open;
+			} -- it fails
+			
+			-- This is password mode backup so the password is to be passed before decrypting
+			set decryption identified by 'Secret!';
+			run
+			{
+				alter pluggable database orcl close;
+				allocate channel d1 device type disk;
+				restore pluggable database orcl from tag=password_encrypted;
+				restore pluggable database orcl;
+				alter pluggable database orcl open;
+			} -- it succeeds
+			
+			For restoring the wallet based encrypted backup, the wallet must be open before decrypting it
+			
+	Opening the wallet
+		If the wallet is not open and the data is selected from the encrypted table or column it will raise the error message
+			'wallet is not open'
+		administer key management set keystore open identified by secret_keystore_password container=all;
+			-- running it will open the keystore and the above problem is resolved
+			
 			
 		
 ------------------------------------------------------------ ORACLE INSTALLATION -------------------------------------
