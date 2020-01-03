@@ -1,0 +1,189 @@
+------------------------------------------------------------ DATABASE BACKUP AND RECOVERY -------------------------------------	
+User managed Cold backup (noarchivelog required)
+	This requires database downtime and is fully consistent
+	Database should be shutdown for this and the failure should be simulated
+	Shutting the database ensures that all data blocks are updated with same SCN (System change number)
+	Redo log files could not be applied in case of cold backup
+	Backup
+		i) Changed the database mode to noarchivelog
+		ii) Copied pfile and spfile
+		iii) Copied control file
+		iv) Copied redo log files and datafiles at once
+	Simulate Failure
+		v) Removed control pfiles and spfile
+		vi) Removed control file but it was in flash recovery area
+		vii) Removed all datafiles and redo files
+	Restore
+		viii) Copied pfile and spfile, database opened in mount stage
+		ix) Control file copied, inconsistent with file error occured, it is because the backed up contro file version did not
+			match with the file stored in flash_recovery area
+			Replacing the control file in flash recovery area with the backed up control file solved the problem
+		x) Redo and datafiles copied, database successfully opened.
+		
+Cold Backup Steps:
+
+	1. Get the file path information using below query
+
+		Select name from v$datafile;
+		select member from v$logfile;
+		select name from v$controlfile;
+
+	2.Taken the password file & parameter file backup ( Optional)
+	3.Alter system switch logfile;
+		alter system archive log current; -- same as above but also make sure that redo files are also archived
+				-- no need to run alter system switch logfile if this is ran
+	4.Shutdown immediate
+	5.Copy all the data files /control files /log files using os command & placed in backup path.
+	6.Startup the database.
+	
+Why you say cold backup is consistent backup?
+After shutdown the database we have taken the cold backup. During this time all datafile headers SCN are same. 
+When we restore the cold backup, no redo is needed in case of recovery.We had taken backup datafile, logfile, controlfile, parameter file & password file.
+
+
+Hot Backup (Inconsistent backup)
+A hot (or on-line) backup is a backup performed while the database is open and available for use (read and write activity). 
+Except for Oracle exports, one can only do on-line backups when the database is ARCHIVELOG mode.
+
+
+Why you say Hot backup is inconsistent backup?
+While database running we have taken the hot backup. 
+During this time backup tablespace datafile headers SCN are not same with another tablespace datafiles. When we restore the hot backup, redo is needed for recovery.
+
+		
+User managed hot backups
+	This uses both OS level commands and database command to backup and restore the database
+	Arcive log mode should be enabled in this backup methodology
+	Backup
+		i) Alter the database with backup mode enabled
+		i) Backup control file, archived log file, datafiles and parameter files
+		Useful
+			alter database begin backup;
+			copy all datafiles, param files and controlfiles
+			alter database end backup;
+			alter system switch logfile; -- then copy all redo files too
+			alter system archive log current; -- same as above but also make sure that redo files are also archived
+				-- no need to run alter system switch logfile if this is ran
+			copy all archived log files to the backup destination
+			alter database backup controlfile to '/control_file.trc'; -- save control file as a trace , this is useful too, binary format
+			Alter Database backup controlfile to ‘/u01/backup/control01.ctl’; -- same as above
+			alter database backup controlfile to trace as '/u01/backup/control02.ctl'; -- save as text file
+			CREATE PFILE ='C:\BACKUP\INIT.ORA' FROM SPFILE; -- if you want to save param file too
+	Failure
+		Remove all datafiles, donot remove control files
+	Recover
+		Shutdown abort; -- cannot perform immediate because system dbf is deleted
+		open in mount stage. -- can do so as control file is not deleted
+		copy all datafiles in the required storage location
+		alter databse open; -- cannot do so as system datafile requires media recovery as this stage
+		recover database; -- database is recovered now
+		alter databse open;
+		
+		-00205: error in identifying control file, check alert log for more info
+			-- this error is thrown when one of the control file is not in place
+			
+	Failure
+		Remove all datafiles and control files
+		I accidentally removed fast_recovery_area but luckily already took backup of archived logs
+		Copied control file and placed in the mount folder
+		While tried to start database it asked for archived log files, then I created fast_recovery_area and placed those files there
+		Tried to start up in mount stage but couldnot do so because if control file is multiplexed then it should be in all folders
+		Then created fast recovery area and placed control file inside orcl folder
+		After that database was started in mount stage
+		recover database using backup controlfile until cancel; -- this helped recovery of database
+			-- using the backed up control file
+			-- until cancel means until the maximum of archived logs given to the database
+		alter database open resetlogs;
+			-- resetting the archived log sequence
+			
+	Backup of control files
+		Binary backup
+			alter database backup controlfile to '';
+		Text file backup
+			1. alter database backup controlfile to trace;
+			2. alter database backup controlfile to trace resetlogs;
+			3. alter database backup controlfile to trace noresetlogs;
+			4. alter database backup controlfile to trace as '';
+			5. alter database backup controlfile to trace as '' reuse;
+			6. alter database backup controlfile to trace as '' resetlogs;
+			7. alter database backup controlfile to trace as '' noresetlogs;
+			
+			
+2. How could we take an online TABLESPACE level backup ?
+	the database should be in ARCHIVELOG mode
+	put the tablespace in "Begin Backup" mode ... if tablespace is in read only mode then no need to do this
+		(example:  ALTER TABLESPACE users BEGIN BACKUP;  )
+		When a tablespace is in backup mode, Oracle will stop updating its file headers, but will continue to write to the data files. 
+		When in backup mode, Oracle will write complete changed blocks to the redo log files. 
+		Normally only deltas (change vectors) are logged to the redo logs. 
+		This is done to enable reconstruction of a block if only half of it was backed up (split blocks). 
+		Because of this, one should notice increased log activity and archiving during on-line backups. 
+		To fix this problem, simply switch to RMAN backups.
+	copy the physical files associated with this tablespace on another location using OS commands
+	put the tablespace in "End Backup" mode  
+		(example:  ALTER TABLESPACE users END BACKUP;  )
+	Archive the unachieved redo logs so that the redo required to recover the tablespace backups is archived                                    
+		(  SQL> ALTER SYSTEM ARCHIVE LOG CURRENT;  )
+	Take a backup of all archived redo log files generated between Begin Backup and End Backup using OS commands
+	
+4. How could I take an online FILE level backup ?
+	the database should be in ARCHIVELOG mode
+	put the datafile in OFFLINE mode  
+		(example:  ALTER DATABASE DATAFILE 'C:\oradata\file1.dbf' OFFLINE;  )
+	copy the physical file on another location using OS commands
+	put the datafile in ONLINE mode  
+		(example:  ALTER DATABASE DATAFILE 'C:\oradata\file1.dbf' ONLINE;  )
+	backup the control file as the database has gone through structural changes
+	
+	
+NOTE: ==>> http://ravioracledba.blogspot.com/p/user-managed-backup.html visit this blog extremely useful
+
+
+RMAN BACKUP ==>>
+	RMAN takes the backup of used blocks only from the datafile
+	Supports incremental and full backups
+	We need not rely on OS level commands
+	Useful
+		report schema; 
+			-- list all permanent datafiles and temporary datafiles
+		report need backup;
+			-- list all files which needs backup
+		Backup of one file -
+			backup datafile 5; -- 5 is the file number, can be seen running report schema
+		Listing the backups done -
+			list backup;
+			list backup summary;
+		Backing up whole database -
+			backup database;
+			backup database plus archive log;
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
