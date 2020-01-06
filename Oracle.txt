@@ -79,7 +79,68 @@ ORACLE DATA TYPES -->>
 			add_months(date, num_of_months)
 			select months_between(date '2014-4-08', date '2001-08-24') as diff from dual; -- 151.48
 		Interval date types
-			
+			Stores period of time
+			Types
+				Interval Year to Month & Day to Second
+					Interval Year(<<precision>>) to month
+					Interval day(<<precision>>) to second(<<precision>>)
+					precision by default is 2 i.e, can store data of 99 years 
+					Eg (year to month literal):
+						employement_length interval year(2) to month -- this is column in some table
+						(employement_length) values(INTERVAL '4-3' year(2) to month)
+					Eg (day to second literal)
+						values (INTERVAL '<days> <hh>:<mi>:<sec>.<ff>' day (<precision>) to second (<precision>)
+	Large Object data types
+		Three types
+			CLOB		-- Character data in the default character set (can store very long); like extended form of varchar2 data type
+			NCLOB		-- Character data in the national character set; like extended form of varchar2 data type
+			BLOB		-- Binar data (images, documents, etc.)
+		Tables can contain multiple LOB columns
+		Maximum size = (4 gigabytes - 1) * (database block size of the tablespace in which this lob column belong to)
+		Cannot be part of an index
+		Cannot be used in order by, group by or aggregate functions
+		Oracle LONG and LONG RAW data types are also present but are deprecated since Oracle 8i
+		How data is stored
+			lob column generally stores a pointer to a LOBINDEX
+			data is stored in LOBSEGMENT 
+				LOBSEGMENT contains many chunks which contains data and LOBINDEX points to those chunks
+				LOBSEGMENT can also be stored in the entirely different tablespace
+		Creating	
+			Create table tbl_name (
+				.......,
+				syllabus blob null
+			)
+			lob (syllabus) store as [securefile|basicfile] (
+				tablespace tblspc_name
+				disable storage in row
+				chunk 8192
+				nocache
+				compress high
+			)
+			lob...........;
+		Securefile vs Basicfile
+			Basicfile -  Original storage implementation for large objects
+			Securefile - Offers additional features like data de-duplication and data compression
+				Advanced compression requires license to use it
+				select * from v$parameter where name = 'db_securefile';
+					NEVER - using Securefile will result to an error
+					PERMITTED - LOBs are allowed to be created as Securefile
+					PREFERRED - LOBs are created as securefile by default (12c)
+					ALWAYS - Always created as Securefile
+					IGNORE - The Securefile keyword is ignored
+				LOB file must be stored in tablespace with ASSM (automatic segment space management) to use securefile option
+		Storage in row option	
+			enable storage in row
+				first 4000 bytes stored inline with row data and remaining data seperately in LOBSEGMENT
+				need not use LOBINDEX for lookup
+		Chunk options
+			smallest unit of data that Oracle works with for LOB values
+			must be multiple of the tablespace data block size
+			if greater chunk size is used then the space might get wasted if the data cannot fill the chunk
+		Data dedeplication
+			available only if Securefile is used
+			used with advanced compression
+			if data are same then won't be stored in seperately (one copy is stored)
 
 AGGREGATE FUNCTION -->>
 	Return single value and works in a row.
@@ -209,9 +270,35 @@ DIRECTORY -->>
 		directory cannot be renamed
 	any LOB file with size greater than 4000 byte will be stored in directory
 	
+IMPORT AND EXPORT -->>
+	For import and export using different file format use tools like SQL DEVELOPER. Which contains some built in feature to support
+	this task.
+	Hints can be used for this purpose
+		SELECT /*csv*/ * FROM scott.emp;
+		SELECT /*xml*/ * FROM scott.emp;
+		SELECT /*html*/ * FROM scott.emp;
+		SELECT /*delimited*/ * FROM scott.emp;
+		SELECT /*insert*/ * FROM scott.emp;
+		SELECT /*loader*/ * FROM scott.emp;
+		SELECT /*fixed*/ * FROM scott.emp;
+		SELECT /*text*/ * FROM scott.emp;
+	Simply set sqlformat variable and the query output will be in desired format
+		SET SQLFORMAT csv;
+		SELECT * FROM scott.emp; -- Press f5 to run as script output
+		SET SQLFORMAT; -- this will transit in the default format
+	
+	
 SQL LOADER -->>
 	It is used to load the content of file in the table
 	Data is loaded permanently
+	Control file is the heart of the sql loader
+		OPTIONS (ERRORS=10, LOAD=100, SILENT(HEADER,FEEDBACK),SKIP=1)
+		TRUNCATE - flush all data and load in it
+		REPLACE - delete the data first and then insert
+			replace and truncate are similar but truncate is more efficient
+		INSERT - expects an empty table and generate error if data is already present
+		APPEND - starts appending data in the table
+			
 	Useful (eg.)
 		control file -
 			OPTIONS (SKIP=1) -- skip the header i.e, first row (if not required the remove this line)
@@ -252,6 +339,30 @@ SQL LOADER -->>
 				name
 			)
 			
+			inline data (i.e, data is in the control file itself)
+			LOAD DATA       
+			INFILE *   
+			TRUNCATE
+			INTO TABLE STUDENT
+			(
+				id sequence,
+				name position(1:6) char, -- similar to name position(1) char(6)
+				price position(7:9) integer external, -- price position(*) integer external(3) -- follows above column
+				item_loc position(8:13) char
+				the_date sysdate
+			)
+			begindata
+			table 100njdemo
+			sofa  200ikdemo
+			chairs50 nydev
+			
+			
+			for fixed length file
+			(
+				id position(1:6) char(100),
+				name position(7:10) char "UPPER(:item_name)",
+				ins_date sysdate
+			)
 			
 		calling through terminal
 			sqlldr userid=sandesh/sandesh control=student.ctl data=student.csv bad=student_bad.bad log=student_log.log
@@ -266,22 +377,45 @@ EXTERNAL TABLES -->>
 	Data is not loaded permanently like sql loader
 	Directory name, datafile, field seperator and record seperator is required for this
 	Directory student_directory is created and the read write access was given to the user
-	Using data pump
-		create table student_data_pump
-		organization external
-		(
-		type oracle_datapump
-		default directory student_directory
-		location ('student_pump.dmp'))
-		as select * from student;
+	USING DATA PUMP
+		Loading
+			create table student_data_pump1
+			(
+				stu_id number,
+				stu_name varchar2(200),
+				stu_address varchar2(200)
+			)
+			organization external
+			(
+			type oracle_datapump
+			default directory student_directory
+			access parameters (   -- can skip access parameters section it is optional
+				logfile another_dir: 'student.log'
+				badfile 'student.bad' -- in the default directory
+			)
+			location ('student_pump.dmp'));
+		Unloading
+			create table student_data_pump2
+			organization external
+			(
+			type oracle_datapump
+			default directory student_directory
+			access parameters (
+				encryption enabled
+				compression enabled
+				logfile 'file.log'
+			)
+			location ('student_pump.dmp'))
+			parallel 2  -- this means the degree, must mention two files in location section two use this otherwise default 1 is used
+			as select * from student;
+			
+			here dmp file is created, student_data_pump table is created which points to the student_pump.dmp file
+				if dump file is deleted then the table will be invalid, it won't display any data
 		
-		here dmp file is created, student_data_pump table is created which points to the student_pump.dmp file
-			if dump file is deleted then the table will be invalid, it won't display any data
-		
-	Using oracle loader
+	USING ORACLE LOADER
 		create table student_external
 		(
-			id number, name varchar2(100)
+			id number, name varchar2(100) -- this list need not contain every column specified in below optional field section
 		)
 		organization external   -- specifies that it is external table
 		(
@@ -295,7 +429,9 @@ EXTERNAL TABLES -->>
 		logfile 'ext_student.log'
 		skip 1
 		fields terminated by ','
+		-- load when (id = 1000) -- not to load that id with value of 1000
 		--reject rows with all null fields
+		lrtrim -- trim the space if specified as char(4000) in below fields section to only insert required value in above table created
 		missing field values are null
 		(id, name)   -- optional (fields)
 		)
@@ -306,6 +442,42 @@ EXTERNAL TABLES -->>
 	
 		records delimited and field terminated are compulsary
 		NOTE: remove all those comments inside query otherwise it will throw error (data catridge error)
+		
+		
+		
+		if in external table more column is required than that listed in file then we can perform column transform
+		create table student_external
+		(
+			id number, name varchar2(100), name_dummy varchar2(200), dummy_const
+		)
+		organization external
+		(
+		type oracle_loader
+		default directory student_directory
+		access parameters
+		(
+		records delimited by newline
+		badfile 'ext_student.bad'
+		discardfile 'ext_discard_student.dsc'
+		logfile 'ext_student.log'
+		skip 1
+		fields terminated by ','
+		load when (id = 1000)
+		--reject rows with all null fields
+		lrtrim
+		missing field values are null
+		(id, name),
+		column transforms -- in above external table defn we have more columns
+		(
+			name_dummy from concat (name, ' DUMMY_VAL '),
+			dummy_const from constant '1'
+			-- another_col_name from lobfile (column_in_fields_section) from dir_name -- this will populate from mentioned lob file
+		)
+		)
+		location ('student.csv')
+		)
+		reject limit unlimited
+		;
 		
 		
 TABLE LOCKS -->>
@@ -422,6 +594,19 @@ CONNECT BY CLAUSE -->>
 		start with employee_id = 101	-- either at a top or bottom determined by prior keyword
 		connect by prior employee_id = manager_id;   -- here employee_id is pk so it is top-down hierarchy (101 will be at the top of the hierarchy)
 			-- i.e, 101 will have the level 1
+			
+VIEW -->>
+	Syntax 
+		Create view as select ................;
+		Create view as select ................ WITH READ ONLY; -- no dml can be performed
+		Create veiw as select ................ WITH CHECK OPTIONS; -- check if any dml will transform data that will no be contained with the	
+			present definition of view. Those operations will be errored out
+	DML in views
+		Can be performed if
+			No distinct
+			No aggregate
+			key-preserved table
+			Not read only
 		
 MATERIALIZED VIEW -->>
 	Database view that stores pre computed results
@@ -495,6 +680,7 @@ TYPE -->>
 		select t1_alias.id, t2_alias.column_value from tbl_varray t1_alias, table(t1_alias.varr_type) t2_alias;
 			-- use table keyword to find out the cartesian product of the id column and global_type_san column which contains multiple value
 					and can be considered as the table in itself
+
 		
 ------------------------------------------------------------ ORACLE PL/SQL -------------------------------------
 
@@ -1415,6 +1601,9 @@ EXIT, RETURN, BREAK, CONTINUE -->>
 		
 JAVA PROCEDURE -->>
 	------ STUDY MORE -----
+	
+	
+------------------------------------------------------------ ORACLE QUERY OPTIMIZATION -------------------------------------
 	
 							
 ------------------------------------------------------------ DATABASE ADMINISTRATION -------------------------------------
