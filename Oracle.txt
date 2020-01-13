@@ -131,7 +131,7 @@ ORACLE DATA TYPES -->>
 				LOB file must be stored in tablespace with ASSM (automatic segment space management) to use securefile option
 		Storage in row option	
 			enable storage in row
-				first 4000 bytes stored inline with row data and remaining data seperately in LOBSEGMENT
+				first 4000 bytes stored inline with row data and remaining data separately in LOBSEGMENT
 				need not use LOBINDEX for lookup
 		Chunk options
 			smallest unit of data that Oracle works with for LOB values
@@ -140,7 +140,7 @@ ORACLE DATA TYPES -->>
 		Data dedeplication
 			available only if Securefile is used
 			used with advanced compression
-			if data are same then won't be stored in seperately (one copy is stored)
+			if data are same then won't be stored in separately (one copy is stored)
 
 AGGREGATE FUNCTION -->>
 	Return single value and works in a row.
@@ -271,6 +271,7 @@ DIRECTORY -->>
 	any LOB file with size greater than 4000 byte will be stored in directory
 	
 IMPORT AND EXPORT -->>
+	This is solely for SQL developer
 	For import and export using different file format use tools like SQL DEVELOPER. Which contains some built in feature to support
 	this task.
 	Hints can be used for this purpose
@@ -309,7 +310,7 @@ SQL LOADER -->>
 			fields terminated by ","
 			(
 				id,
-				name
+				name 
 			)
 			
 			
@@ -326,6 +327,7 @@ SQL LOADER -->>
 			
 			
 			OPTIONS (SKIP=1)
+			UNRECOVERABLE		-- the history won't be written in the redo log files, beware while using it, perform immediate backup, similar to NOLOGGING
 			LOAD DATA       
 			INFILE 'student.csv'
 			BADFILE 'student_bad.csv'
@@ -334,9 +336,10 @@ SQL LOADER -->>
 			INTO TABLE STUDENT
 			WHEN ID <> '5000'
 			FIELDS TERMINATED BY ","
+			TRAILING NULLCOLS	-- treat the field if not present in data file at the end as null
 			(
 				id,
-				name
+				name "trim(:name)"
 			)
 			
 			inline data (i.e, data is in the control file itself)
@@ -1280,7 +1283,7 @@ TRIGGERS -->>
 	Mutating Trigger
 		If the trigger body is selecting from the same table and try updating the same then the problem is called mutation
 		Try avoiding this the solution is also mentioned above
-		This can be avoided either using autonomous_transaction pragma in the trigger which will just create the seperate transaction
+		This can be avoided either using autonomous_transaction pragma in the trigger which will just create the separate transaction
 		OR
 		Avoid performing the action that causes mutation
 		
@@ -1604,7 +1607,382 @@ JAVA PROCEDURE -->>
 	
 	
 ------------------------------------------------------------ ORACLE QUERY OPTIMIZATION -------------------------------------
-	
+
+BASIC SQL OPTIMIZATION -->>
+	Normalization
+		Normalization reduces the redundant data in the table
+		This will help reduce the volume of table being fetched from the query
+		Skinny tables = faster queries
+		First normal form
+			No repeating fields i.e, two phone number fields
+		Second normal form
+			Must be in first normal form
+			No attribute associated with partial key column
+				i.e, in case of composite key column should depend on whole key not the partial key
+		Third normal form
+			Must be in first and second normal form
+			All non key column must directly depend on primary key only
+		Dividing the larger tables into facts and dimensions tables. Dimensions table contains all 
+	Infrequent columns
+		Only add those columns in the table which will be used in the select clause
+		Separate out infrequently used columns into a separate table
+	Nulls and space
+		Nulls take up 1 byte of space if present between the columns
+		Nulls will take 0 byte space if present at the end of the columns
+	Neaten up SQL code
+		Spend less time figuring the code
+	Intersect vs Inner join
+		Intersect performs better than corresponding inner join
+		Intersect has its own distinct too where as explicit distinct should be mentioned in case of join
+	Minus vs Left join
+		Minus performs better than corresponding left join
+		Minus has its own distinct too where as explicit distinct should be mentioned in case of join
+	Correlated subquery
+		Outer query column(s) coded within subquery
+		Generally performs poorly
+		Try avoiding correlated subqueries
+	In vs Exists
+		If inner query is small as compared to outer than use IN
+		If inner query is large as compared to outer than use EXISTS
+	Multi-Column IN condition vs ANDs/ORs
+		Multi-column IN performs better than ANDs/ORs
+		Readable too
+	The WITH clause
+		Readable
+		Puttine subquery that runs multiple times in a query within the WITH clause reduces the time significantly
+	Append hint
+		Best on tables with a lot of deletes
+		Normally while inserting the writer search for the vacant block created after deletion of record.
+			This will degrade the performance as significant amount of time is wasted for that search
+		Append hint suggest not to search for those vacant space and directly append record at the end
+	On clause vs Where clause
+		No significant runtime reduction
+		Use ON clause for join criteria
+		Use where clause for subsetting criteria
+	Order of tables on from clause
+		Tables with fewer rows first
+		May significantly reduce execution time
+		
+INDEX -->>
+	Index solves the problem of full table scan problem
+		i.e, every row of the table should be visited if the index is not defined
+	Creating index for every columns in table
+		Waste of space. Can get heavier than data itself
+		If whole table is read generally then index won't help
+		Index and where clause goes hand in hand so the if created for some column it might no get used
+		Index will only be used if <=15% of data is returned
+		Inserts, updates and deletes can go slower as not only the data is inserted but also index gets updated
+	B-Tree Index
+		This is the most general purpose index
+		It is upside down tree like structure in which the bottom nodes are leaves and traversal happens from the top
+	Bitmap Index
+		Stored as a series of bits (0 or 1) indicating row incusion/exclusion
+		Used if distinct column values is very much less than total number of rows
+		Eg, Gender column might contains only two values wheres there might me millions of row present
+		Binary AND OR can be performed if and and or are used in column having bitmap index defined
+	Function based Index	
+		For Eg, if UPPER(name) is to be used often instead of name only then the index thus created are function base index
+		Different complex calculation can also be used but the exact calculation is to be used in where clause
+	Index-Organized tables
+		Combines table and index into one object in contrast to btree indexes in which they are stored separately
+		Stored based on the primary key
+		Not generally used in practice
+	Bitmap join indexes
+		Performs the joins up-front
+		Inner join between tables should be defined while creating these index
+	Gathering statistics
+		Oracle uses optimizer statistics to analyze the execution plan that should be adopted
+		Gather statistics after creating the indexes
+		Otherwise it won't be helpful if oracle does not know the statistics and benefit of using index
+		Use DBMS_STATS package to gather statistics
+		Avoid older ANALYZE commands
+		Oracle will auto gather stats in index column only if the table is not empty
+	Index/Partition Interaction
+		Partition means to slice the table into smaller once based upon some table value
+		Index can also be created in each partitioned table they are called (local partitioned indexes)
+		Index across all partitions are called (global non-partitioned indexes)
+		Index that use different partitioning scheme than that of underlining table is called (global partitioned indexes)
+	Eg
+		select * from v$sesstat;
+		select * from v$statname;
+		exec dbms_stats.gather_table_stats(ownname=>'HR', tabname=>'EMPLOYEES', estimate_percent=>DBMS_STATS.AUTO_SAMPLE_SIZE);
+		exec dbms_stats.gather_table_stats(ownname=>'HR', tabname=>'EMPLOYEES', estimate_percent=>100, degree=>DBMS_STATS.DEFAULT_DEGREE);
+			-- 100 means gather stats on all rows
+			-- degree means the degree of parallelism
+		
+B-TREE INDEX -->>
+	B-Tree index is like an inverted tree with root at the top and leaf at the bottom
+	RowId is placed at the leaf of the B-Tree indicating the rows belonging to the particular index branch
+	Can be placed on numeric and date data types
+	This index can be either simple or composite
+		Composite in the sense that it can be placed in more than one column
+		If where clause is placed generally in one column than go for simple otherwise composite index
+	When to use
+		Index <-> where clause
+		Gather and inspect where clause that could be used and create index accordingly
+		Primary Key
+			index created automatically
+			prevents accidental data duplication
+			index <-> joins
+	Create Eg
+		Create index index_name on table_name(column_name);
+		create unique index ix_name on table_name(unique_col_name);
+		create unique index ix_name on tbl_nm(columns...);
+		create unique index ix_name on tbl_nm(columns...) parallel;
+		create unique index ix_name on tbl_nm(columns...) tablespace tbs_name;
+	Useful dictionary tables
+		user_tables, all_tables
+		all_ind_columns, user_ind_columns
+	Gather statistics
+		DBMS_STATS package
+			GATHER_SCHEMA_STATS - gather stats on all tables in a schema
+			GATHER_TABLE_STATS - gather stats on a specific table
+		Dict view
+			*_tab_statistics, *_tab_col_statistics, *_ind_statistics
+	Is the index being used
+		Autotrace and Explain plan is used 
+		Need plan_table - ask you db administrator (UTLXPLAN.SQL)
+		Autotrace execute the sql statement whereas explain plan won't
+		Useful
+			For autotrace
+				set autotrace on explain;
+				run_sql_code in here
+				set autotrace off;
+				view the plan table for the info
+			For explain plan
+				explain plan set statement_id='TEST1' for select.................;
+				
+BITMAP INDEX -->>
+	It is used if the cardinality of distict values for a column is less comparable to the total rows present
+	Distinct column values is very less than total rows in table
+	For multiple bitmaps on single sql query AND/OR operation is performed
+	When to use
+		Used often in data warehouses
+		Degree of cardinality is low compared to the total columns
+		Don't use on unique columns, use b-tree index instead
+		Takes less space than corresponding btree index
+	Creating
+		create bitmap index on table_name(col_name);
+		create bitmap unique index on table_name(col_name); -- this won't work
+		create bitmap index on table_name(col_name) parallel;
+		create bitmap index on table_name(col_name) tablespace tbs_name;
+	Is the index being used
+		Same as B-Tree index i.e, explain plan and autotrace
+		Instead of range scan in b-tree we can find bitmap index
+		If composite index is used with two columns and AND operation is used then we can find logical AND operation between the
+			resultant bits of two bitmap index scans
+			
+ADDITIONAL INDEX TYPES -->>
+	Function-Based indexes
+		If function is applied to the indexed column then that index is ignored
+		If function index is created and same clause is found in where then that index is considered
+		Eg:
+			where upper(name)='SANDESH'
+				if index is created in name column then that index is ignored as upper function is applied to that column
+				To solve this issue create function based index. EG:
+					create index indx_name on tbl_name(upper(col_name)) parallel;
+		Bitmap function based can also be created if required
+	Bitmap join indexes
+		Bitmap Join Indexes extend this concept such that the index contains the data to support the join query, 
+			allowing the query to retrieve the data from the index rather than referencing the join tables. 
+			Since the information is compressed into a bitmap, 
+			the size of the resulting structure is significantly smaller than the corresponding materialized view.
+		Restrictions
+			No table can appear twice in the join.
+			You cannot create a bitmap join index on an index-organized table or a temporary table.
+			The columns in the index must all be columns of the dimension tables.
+			The dimension table join columns must be either primary key columns or have unique constraints.
+			If a dimension table has composite primary key, each column in the primary key must be part of the join.
+		This is used to create index between two table based up some join criteria
+		Usually involves a join between fact and dimension table(s)
+		Dimension table needs primary key/unique constraint
+		Usage
+			Create primary key on dimension column
+			create bitmap index btm_indx_name on
+				fact_tbl_name(B.col_name)  -- here B.col_name is the subsetting criteria present after join in where clause. Index on B.col_name is also useful.
+				from fact_tbl_name A, dim_tbl_name B
+				where A.col_id=B.col_id; -- ON clause in join
+		
+	Index-Organized tables	
+		Normally,
+			index are stored separately from the table
+			index stores ROWIDs for the table
+		Index-Organized table stores data in B-Tree itself
+		Index-Organized table is its own index
+		Index-Organized table must have a primary key constraint
+		Data access is faster since table and index are same entity
+		Usage
+			create table tbl_nm (........................, constaint pk_constraint primary key pk_col_name) organization index;
+			insert into tbl_nm ......................;
+			create index ix_nm on tbl_nm (col_nm) parallel;
+			exec dbms_stats.gather_table_stats(ownname=>'hr'
+												tabname=>'tbl_nm',
+												estimate_percent=>dbms_stats.auto_sample_size,
+												degree=>dbms_stats.default_degree);
+												
+			create table tbl_nm (........................, constaint pk_constraint primary key pk_col_name) organization index
+				including col_name_1 overflow;
+				-- this means columns after col_name_1 will be stored in overflow regions
+				-- that means only columns prior and including to col_name_1 will be treated as a table
+				-- this slims down the table
+				
+PARTITIONS -->>
+	Overview
+		Smaller tables implies faster query execution
+		Smaller in the sense both rows and columns
+		Break down table with huge data based up on some logical sections (smaller tables)
+		If stored in multiple tables then to perform UNION between them will be nightmare; Partitioning is helpful in this scenario
+		Partitioning is done by specifying some column and its value through which partitions are constructed
+		Each partition can also be stored in the separate tablespace
+		Partitions can specified beforehand of the data i.e, if done by year then partition can be made ready for another new year
+		Types of partitions
+			Simple: Range, List and Hash
+				----- discussed in basic sections ----
+			Composite: These are called partitions of partition
+				Range-List(e.g, survey_date/respondent_gender,etc.)
+					i.e, survey-date - range partition and respondent_gender - list partition
+				List-List(e.g, likelihood_purchase/respondent_gender, etc.)
+					i.e, likelihood_purchase - list partition and respondent_gender - list partitio
+				and so on.....
+		Partition-Wise joins
+			Oracle can execute queries in parallel based on partitioning scheme
+			Joins,
+				tables with same partitioning scheme -> full partition-wise joins
+				tables with different partitioning scheme -> partial partition-wise joins
+				
+	Simple Partitions
+		List partition
+			List partition only allows single column to be the partition key unlike range partition
+			Partition can be defined using one or more values i.e,
+				values (2004) or values (2004, 2005...);
+			Can create partition with non-existent values
+			Can make use of DEFAULT keyword for the unhandled values
+			Each partition can be on its own tablespace
+			Syntax
+				create table tb_nm (....) 
+				partition by list (col_name) (
+					partition p_1 values (12,15,19) tablespace tbs_1,
+					partition p_2 values (20),
+					partition p_def values (default) tablespace tbs_2
+				);
+			Dictionary views
+				ALL_TAB_PARTITIONS, USER_TAB_PARTITIONS, DBA_TAB_PARTITIONS
+			Adding new partition in existing partitioned table 
+				alter table tbl_name add partition p_name values (15); --this assumes we have not created default partition
+				alter table tbl_name split partition p_def values (2010,2011,2012) into (partition p_012, partition p_def);
+					-- if default partition is already present
+					-- this will also move the value from default partition to newly created partition if condition satisfies
+			Dropping
+				Dropping partition as well as the data in it
+					alter table tbl_name drop partition p_01; -- be cautious
+				Merge partition with adjacent partition
+					alter table tbl_name merge partitions p_01, p_02 into partition p_0102;
+		Range partition
+			Creates partitions using a range of values
+			VALUES LESS THAN clause is used for this
+			Partitions can be defined using one or more columns 
+			MAXVALUE keyword us used for unhandled values similar to DEFAULT in list partition
+			Can create partition with non-existent values
+			Each partition can be placed in separate tablespace
+			Syntax
+				create table tb_nm (....)
+				partition by range (col_name) (
+					partition p_1 values less than (date '2005-01-01'),
+					partition p_2 values less than (date '2006-01-01') tablespace tb_1,
+					partition p_rest values less than (maxvalue)
+				);
+			Adding new partition in existing partitioned table 
+				alter table tb_nm add partition p_2014 values less than (date '2014-01-01'); -- assume there is no maxvalue partition
+				alter table tb_nm split partition p_rest at (date '2015-01-01') into (partition p_2014, partition p_rest); -- if maxvalue exists
+			Dropping
+				Dropping partition as well as the data in it
+					alter table tbl_name drop partition p_1; -- be cautious
+				Merge partition with adjacent partition
+					alter table tbl_name merge partitions p_1, p_2 into partition p_12; -- adjacent partition merged
+					
+	Composite Partitions
+		Partition contained within a partition is called composite partition
+		can create partition with non-existent values
+		Sub-partition template can be created which saves time by preventing to create each subpartition by hand
+		Can override subpartition template as necessary
+		Make sure that partition and subpartition column are present in where clause in vast majority -> partition pruning
+		Dictionary view
+			user_tab_subpartitions, all_tab_subpartitions
+			In subpartition_name column, name is displayed as partname_subpartname
+		Types of composite partition
+			List/List - List partitions with list subpartitions
+			Range/List - Range partitions with list subpartitions
+			Oracle 10gR1/R2: range partition with List/Hash subpartitions
+			Oracle 11gR1: Range/List partition with Range/List/Hash subpartitions
+			Oracle 11gR2: Range/List/Hash partition with Range/List/Hash subpartitions
+		Eg List/List
+			create table tbl_nm (..........)
+			partition by list (col_integers) 
+			subpartition by list (col_gender)
+			subpartition template (	-- this is for subpartition
+				subpartition sp_male values ('M', 'm'),
+				subpartition sp_female values ('F', 'f'),
+				subpartition sp_other values (DEFAULT)
+			)
+			(		-- this is for partition
+				partition p_1 values (12,13,14),
+				partition p_2 values (15,16)
+			);
+		Eg Range/List
+			create table tbl_nm (..........)
+			partition by range (survey_date) 
+			subpartition by list (likelihood_purchase)
+			subpartition template (	-- this is for subpartition
+				subpartition sp_male values ('M', 'm'),
+				subpartition sp_female values ('F', 'f'),
+				subpartition sp_other values (DEFAULT)
+			)
+			(		-- this is for partition
+				partition p_1 values less than (date '2019-01-01'),
+				partition p_2 values less than (date '2020-01-01')
+			);
+		Overriding subpartition
+			create table tbl_nm (..........)
+			partition by range (survey_date) 
+			subpartition by list (likelihood_purchase)
+			subpartition template (	-- this is for subpartition
+				subpartition sp_male values ('M', 'm'),
+				subpartition sp_female values ('F', 'f'),
+				subpartition sp_other values (DEFAULT)
+			)
+			(		-- this is for partition
+				partition p_1 values less than (date '2019-01-01')(
+					subpartition sp_male values ('M'),
+					subpartition sp_female values ('F'),
+					subpartition sp_other values (DEFAULT)
+				),
+				partition p_2 values less than (date '2020-01-01')
+			);
+		Adding subpartition
+			alter table tbl_nm
+				modify partition p_2
+				add subpartition p_default values (DEFAULT);
+				
+PARTITION/INDEX INTERACTION -->>
+	Partition means to slice the table into smaller once based upon some table value
+	Index can also be created in each partitioned table they are called (local partitioned indexes)
+	Index across all partitions are called (global non-partitioned indexes)
+	Index that use different partitioning scheme than that of underlining table is called (global partitioned indexes)
+	Global Non-Partitioned Index
+		Same as the index learned earlier
+		This does not care about any partitions, simply the index will be create in the whole table
+		create index indx_name on tbl_nm(col_nm..);
+		user_indexes, user_ind_columns
+	Local partitioned indexes
+		Inherits same partitioning scheme as table itself
+		create index index_name on tbl_nm(col_nm) local;
+		user_ind_partitions
+			if status column of this table is unusable then that index is not being used
+			change in partition cause this type of issue
+			i.e, if the new partition is added or splitted then the index in that can be unusable
+			to make usable
+				alter index indx_name rebuild partition new_unusable_partname;
+		
 							
 ------------------------------------------------------------ DATABASE ADMINISTRATION -------------------------------------
 		
@@ -2189,7 +2567,7 @@ POINT IN TIME RECOVERY (PITR) -->>
 			
 	Oracle backup technologies
 		User-managed hot backups
-			Manually copy oracle data files to a seperate location to create a physical backup of the database
+			Manually copy oracle data files to a separate location to create a physical backup of the database
 			Can be done while database is running
 			Incremental backups cannot be done with this approach
 			Not used that much at recent time
@@ -2219,7 +2597,7 @@ POINT IN TIME RECOVERY (PITR) -->>
 		The archives are stored in DB_RECOVERY_FILE_DEST parameter size defined by DB_RECOVERY_FILE_DEST_SIZE
 		
 	USER MANAGED BACKUPS
-		Manually copying oracle data files to a seperate location
+		Manually copying oracle data files to a separate location
 		start by enabling the database online 'backup mode'   -- alter database start backup;
 		finish by taking the database out of 'backup mode'		-- alter database end backup;
 			i)  Then perform copy commands and copy the required data files etc
@@ -2304,7 +2682,7 @@ POINT IN TIME RECOVERY (PITR) -->>
 		Useful
 			Export
 				expdp system/sagarmatha schemas=sandesh dumpfile=mydump01.dmp; -- file is dumped in the default oracle directory
-				expdp system/sagarmatha schemas=<comma seperated list of schemas> dumpfile=mydump01.dmp; -- exporting from multiple schemas
+				expdp system/sagarmatha schemas=<comma separated list of schemas> dumpfile=mydump01.dmp; -- exporting from multiple schemas
 				create directory my_exp_dir1 as '/u01/app/oracle/admin/orcl/my_export_directory'; -- will not create file system dir if not exists
 				grant read,write on directory my_exp_dir1 to public;
 				expdp system/sagarmatha schemas=sandesh dumpfile=mydump01.dmp directory=my_exp_dir1; -- exporting to the directory created
@@ -2424,9 +2802,9 @@ MULTITENANT ARCHITECTURE -->>
 		Movement of one database to another server is really complex procedure to follow
 	Pre 12c schema consolidations	
 		One server, running one database but has many schemas per application running
-		Logically seperate but not physically seperates as schemas are simply logical objects
+		Logically separate but not physically separates as schemas are simply logical objects
 		If same application ran by two different branches then cloning schema twice will create lot of trouble like in public synonyms etc.
-		Moving one schema to another server is also difficult as they are not physically seperated
+		Moving one schema to another server is also difficult as they are not physically separated
 		Logical copy technology like data pump should be used which is no fast comparatively
 	With 12c
 		Single server, single instance, multiple databases
@@ -2446,7 +2824,7 @@ MULTITENANT ARCHITECTURE -->>
 			It is named PDB$SEED
 		Undo tablespace is only contained in root container
 			-- This is only till oracle 12cR1. In Oracle Database 12c Release 1 all containers in an instance shared the same undo tablespace.
-			-- Now the undo tablespace can be configured with local mode on; In this case all pdbs will have undo datafile contained seperately
+			-- Now the undo tablespace can be configured with local mode on; In this case all pdbs will have undo datafile contained separately
 			-- In Oracle 12c Release 2 each container in an instance can use its own undo tablespace
 			-- Local undo mode is the default mode in newly created databases
 			-- Switching to shared mode
@@ -2710,7 +3088,7 @@ USERS AND PERMISSIONS -->>
 	Goto USER MANAGEMENT section for the further information regarding it
 	Users and Schemas are essentially same thing in case of oracle.
 		Once the user is created, schema is also created alongside the user
-		User cannot be created seperately to the schema and vice versa
+		User cannot be created separately to the schema and vice versa
 	SYS	
 		Sys user is the most powerful user in the database
 		Beware while connecting with the sys user and performing any action in the database
@@ -2765,7 +3143,7 @@ USERS AND PERMISSIONS -->>
 		One way to try seperating
 			Create everything in one schema that makes sense. For eg, CRM app data in CRM user
 			Lock the CRM user after creating everything
-			Then create seperate different users and provide them privilege accordingly
+			Then create separate different users and provide them privilege accordingly
 			
 DATABASE ROLES -->>
 	Using roles user permissions can be grouped together such that it can be granted to the users
