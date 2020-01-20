@@ -3558,6 +3558,12 @@ DATA ENCRYPTION -->>
 					performing database recovery
 				open -
 					all users can access the database
+				force -
+					first shuts the database with abort and then restart the database
+				open recover -
+					if media recovery is required, then it will be performed automatically
+				open restrict -
+					opens the database and restricts the access to only some users who have restricted session privilege with them
 			shutdown
 				immediate -
 					terminate all executing sql query, and disconnects the user
@@ -3570,10 +3576,18 @@ DATA ENCRYPTION -->>
 				normal -
 					wait for all transactions to complete
 					can start new transactions by the connected user but doesnot allow new user to connect
+					waits for all connected users to disconnect
 					coloses the database at the end after performing checkpoint
 				abort -
 					everything will be stopped
 					instance recovery should be performed later
+			alter databse
+				open read only
+				open read write - default option
+				open resetlogs - during recovery to reintialize archive log number
+			alter system
+				enable restricted session
+				disable restricted session
 
 		parameters related -
 			show parameter sga_target;
