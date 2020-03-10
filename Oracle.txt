@@ -3564,6 +3564,7 @@ DATA ENCRYPTION -->>
 					if media recovery is required, then it will be performed automatically
 				open restrict -
 					opens the database and restricts the access to only some users who have restricted session privilege with them
+					best to have this privilege with dba only
 			shutdown
 				immediate -
 					terminate all executing sql query, and disconnects the user
@@ -3587,7 +3588,26 @@ DATA ENCRYPTION -->>
 				open resetlogs - during recovery to reintialize archive log number
 			alter system
 				enable restricted session
+					same as 'open restrict'
+					need to kill the session if any non-dba (in the sense restricted session privilege is granted) work is going on otherwise the session won't stop
 				disable restricted session
+				quiesce restricted
+					does not allow any non-dba connections
+					wait for any active session and once they became inactive the system is quiesced
+					session resumes once the system is unquiesced
+					SELECT ACTIVE_STATE FROM V$INSTANCE; -- view the state
+				unquiesce
+					used to unquiesce the database
+					SELECT ACTIVE_STATE FROM V$INSTANCE; -- view the state
+				suspend
+					suspends a database by halting all input and output
+					preexisting operations are allowed to complete and any new database access are placed in queue state
+					if new instance is started then it won't be in suspended state beware of that
+					can be used for copying the datafiles etc.
+					SELECT DATABASE_STATUS FROM V$INSTANCE; -- view the state
+				resume
+					resumes halted I/O operations
+					SELECT DATABASE_STATUS FROM V$INSTANCE; -- view the state
 
 		parameters related -
 			show parameter sga_target;
@@ -3630,7 +3650,19 @@ DATA ENCRYPTION -->>
 			CREATE CONTROLFILE is used to manually create a controlfile
 			ALTER DATABASE BACKUP CONTROL FILE TO TRACE for backup
 		
-		
+		password file change -
+			orapwd file=orapworcl force=Y format=12.2 sys=Y input_file=orapworcl
+				-- force=Y for change the same existing file
+				-- input_file param transfers content of previous password file to the new one
+				-- sys=Y asks for the password of new sys
+			password can also be changed using alter user sys ....... command
+			General:
+				orapwd FILE=filename [FORCE={y|n}] [ASM={y|n}] [DBUNIQUENAME=dbname]
+				[FORMAT={12.2|12}] [SYS={Y|password|external('sys-external-name')}]
+				[SYSBACKUP={password|external('sysbackup-external-name')}]
+				[SYSDG={password|external('sysdg-external-name')}}]
+				[SYSKM={password|external('syskm-external-name')}}]
+				[DELETE={y|n}] [INPUT_FILE=input-fname]
 		
 		
 	
