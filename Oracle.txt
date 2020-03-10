@@ -3614,10 +3614,19 @@ DATA ENCRYPTION -->>
 			show parameter sga_; >> list all the params with sg_ text as substring
 			alter system set sga_target=1000m scope=memory/spfile/both;  >> memory -- cleared after restart, spfile -- stored in spfile reflects after restart, both -- both
 			create pfile='/home/oracle/my_pfile.ora' from spfile;    >> this will copy all the parameters from spfile so that we can view it
+			create spfile from memory; -- create spfile using the content of memory
+			create spfile<=............> from pfile<=.....>; -- overriding the default by providing the file name to use
+			alter system reset; --  clear the initialization parameter value. reverted back to the start up state
+			
 			Parameter file are of two type :
 				pfile and spfile, pfile is stored as string whereas spfile is stored as binary
 				pfile -> $ORACLE_HOME/dbs/init.ora
 				spfile - > $ORACLE_HOME/dbs/spfile[sid].ora
+			select * from v$parameter where name like '%control%'; -- comma concatenated if has many values (session level)
+			select * from v$parameter2 where name like '%control%'; -- if has multiple value then splitted into separate lines (session level)
+			select * from v$system_parameter where name like '%control%'; -- comma concatenated if has many values (instance level)
+			select * from v$system_parameter2 where name like '%control%'; -- if has multiple value then splitted into separate lines (instance level)
+			select * from v$spparameter where name like '%control%'; -- contents of spfile
 		create user and permissions -
 			create user user_name identified by password;   >> if connected then displays create session privilege error
 			grant create session to user_name;    >> if create table is executed - insufficient privilege
