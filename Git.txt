@@ -26,7 +26,7 @@ Commands ->
 	git fetch <link>   -> fetches but donot merge
 	git pull <link> -> fetches + merge
 	
-	git status -s   -> check if the file is modified. 
+	git status -s   -> check if any file is modified. 
 	git status -> check the git staging area
 	git reset -> remove from staging area
 		git reset --soft <hash>  -> return to that commit(hash) but keep changes in the staging area
