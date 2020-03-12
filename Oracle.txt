@@ -2491,6 +2491,7 @@ USER MANAGEMENT -->>
 		lespace
 		
 		GOTO ---create user and permissions--- SECTION FOR MORE QUERIES
+		More on (USERS AND PERMISSIONS) -- Database security concepts
 		
 	SYSTEM VS OBJECT PRIVILEGE - 
 		Object privilege is the action that are allowed to be operated on certain users.
@@ -2581,6 +2582,118 @@ TERMINATING SESSION -->>
 				END;
 				/
 		select * from V$SESSION; -- provides session info (session is ACTIVE if it is making SQL calls)
+		
+		
+MONITORING DATABASE -->>
+	Errors and Alerts
+		The trace file and alert log contain information about errors
+		Each server and background process can write to an associated trace file
+		When an internal error is occurred, the info is written to the corresponding trace file
+		Alert log is a chronological log of messages and errors
+			Trace file info is also written in the alert log
+			Goto given trace file to view the issue
+		Location: DIAGNOSTIC_DEST
+				  BACKGROUND_DUMP_DEST
+				  CORE_DUMP_DEST
+	    Control size of alert log file by deleting the file and archiving it otherwise system will keep on appending the content.
+		Control size of trace file with MAX_DUMP_FILE_SIZE - UNILIMITED, <some_number><K,M,G>
+			File will be segmented if that given file size is reached
+		Background processes always write to a trace file when appropriate
+			For ARCn process it is possible to control what and how much to be written using parameter LOG_ARCHIVE_TRACE param
+		Regardless of param SQL_TRACE background processes can write to trace file altering its session
+			ALTER SESSION SET SQL_TRACE TRUE;
+			DBMS_SESSION, DBMS_MONITOR -- use them to control SQL tracing for a session
+	Server-Generated Alerts
+		A server-generated alert is a notification from the Oracle Database server of an impending problem
+		A server-generated alert may contain suggestions for correcting the problem
+		Notifications are also provided when the problem condition has been cleared
+		Alerts are automatically generated when a problem occurs or when data does not match expected values for metrics, such as the following:
+			• Physical Reads Per Second
+			• User Commits Per Second
+			• SQL Service Response Time
+		Server-generated alerts can be based on threshold levels or can issue simply because an event has occurred
+			The value of these levels can be customer-defined or internal values, and some alerts have default threshold levels which can be changed if appropriate
+			Eg: tablespace usage exceeds 85% etc.
+		Some example not base on threshold issues
+			• Snapshot Too Old
+			• Resumable Session Suspended
+			• Recovery Area Space Usage
+	Monitoring Performance
+		Locks
+			Locks are mechanisms that prevent destructive interaction between transactions accessing the same resource
+			To monitor locks:
+				1. Run the catblock.sql, which creates lock views.
+				2. Run the utllockt.sql script, which uses the views created by catblock.sql to display, in a tree fashion, the sessions in the system that are waiting for locks and
+						the locks that they are waiting for.
+			Useful
+				V$LOCK, DBA_BLOCKERS, DBA_WAITERS, DBA_DDL_LOCKS, DBA_DML_LOCKS, DBA_LOCK, DBA_LOCK_INTERNAL, V$LOCKED_OBJECT, V$SESSION_WAIT, V$SYSSTAT, V$RESOURCE_LIMIT,
+				V$SQLAREA, V$LATCH
+	Monitoring quarantined objects
+		Object quarantine isolates an object that has raised an error and monitors the object for impacts on the system.
+		Some process might cause database to abort. Such resources might be isolated in memory such that database can continue to run
+		V$QUARANTINE view store the objects that are currently quarantined
+		
+		
+CONTROL FILE MANAGEMENT -->>
+	Every Oracle Database has a control file, which is a small binary file that records the physical structure of the database.
+	Without the control file, the database cannot be mounted and recovery is difficult.
+	specify control file names using the CONTROL_FILES initialization parameter 
+	Every Oracle Database should have at least two control files, each stored on a different physical disk
+		This is called control file multiplexing
+	It is important to backup control file whenever database structure changes
+		• Adding, dropping, or renaming data files
+		• Adding or dropping a tablespace, or altering the read/write state of the tablespace
+		• Adding or dropping redo log files or groups
+	The main determinants of the size of a control file are the values set for the
+		MAXDATAFILES, MAXLOGFILES, MAXLOGMEMBERS, MAXLOGHISTORY, and MAXINSTANCES params in CREATE DATABASE statement
+	Initially control files are created during database creation phase
+		names of the control files are mentioned in CONTROL_FILES param
+		if files already exists then use CONTROLFILE REUSE clause with the CREATE DATABASE statement
+	Creating control file
+		Must create new control files in certain situations.
+		It is necessary to create new control files in the following situations:
+			• All control files for the database have been permanently damaged
+			• If database name is to be changed
+		Useful
+			CREATE CONTROLFILE
+				SET DATABASE prod
+				LOGFILE GROUP 1 ('/u01/oracle/prod/redo01_01.log',
+								/u01/oracle/prod/redo01_02.log'),
+						GROUP 2 ('/u01/oracle/prod/redo02_01.log',
+								'/u01/oracle/prod/redo02_02.log'),
+						GROUP 3 ('/u01/oracle/prod/redo03_01.log',
+								'/u01/oracle/prod/redo03_02.log')
+				RESETLOGS
+				DATAFILE '/u01/oracle/prod/system01.dbf' SIZE 3M,
+						'/u01/oracle/prod/rbs01.dbs' SIZE 5M,
+						'/u01/oracle/prod/users01.dbs' SIZE 5M,
+						'/u01/oracle/prod/temp01.dbs' SIZE 5M
+				MAXLOGFILES 50
+				MAXLOGMEMBERS 3
+				MAXLOGHISTORY 400
+				MAXDATAFILES 200
+				MAXINSTANCES 6
+				ARCHIVELOG;
+		If after losing control files we donot know what to include in those logfile and datafile
+			SELECT MEMBER FROM V$LOGFILE; -- listing all log files
+			SELECT NAME FROM V$DATAFILE; -- listing all data files
+			SELECT VALUE FROM V$PARAMETER WHERE NAME = 'control_files'; -- listing control files
+		If no such above list is present then
+			try to locate all datafiles and redo files that constitute the database
+		During crash
+			Place all data files and redo log files in the desired location
+			Open database in NOMOUNT
+			Issue CREATE CONTROLFILE statement
+			Specify RESETLOGS clause if you have lost any redo log groups in addition to control file
+			Edit CONTROL_FILES initalization param to indicate all of the control files
+			If new control file was create using RESETLOGS
+				must specify USING BACKUP CONTROL FILE -- recovers the lost online redo logs, archive redo log files, or data files
+			Then open the database
+				ALTER DATABASE OPEN;
+				ALTER DATABASE OPEN RESETLOGS;
+			
+	
+	
 		
 DATA DICTIONARY -->>
 	----Check in basic section-----
