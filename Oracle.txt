@@ -2146,6 +2146,24 @@ MEMORY STRUCTURES -->>
 			That private SQL will be stored in Shared SQL area inside library cache checking if all are running similary query
 		Its a private memory region containing data and control information for a server process
 		
+	Useful
+		show parameter SGA_TARGET; -- total memory allocated for SGA
+		show parameter PGA_AGGREGATE_TARGET; -- total memory allocated for PGA
+		select * from v$pgastat; -- info regarding PGA
+		select * from v$sgastat; -- info regarding SGA
+		SELECT VALUE/1048576 FROM V$PGASTAT WHERE NAME='maximum PGA allocated'; -- max space allocated for PGA since the start of database (MAXIMUM PGA ALLOCATED)
+		MEMORY_TARGET 
+			if this is set then auto mem management will be done between SGA and PGA
+			MEMORY_TARGET = SGA_TARGET + MAX(PGA_AGGREGATE_TARGET, MAXIMUM PGA ALLOCATED) -- set memory target as given to estimate the memory required
+		MEMORY_MAX_TARGET
+			set this variable forseeing the value that might be required in the future
+		if MEMORY_TARGET is set to some value then set SGA_TARGET and PGA_AGGREGATE_TARGET as 0. Such that there is no restriction on sizes during auto mem management.
+		V$MEMORY_DYNAMIC_COMPONENTS
+			-- shows the current sizes of all dynamically tuned memory components
+		V$MEMORY_TARGET_ADVICE
+			-- view tuning advice for the MEMORY_TARGET during auto memory management
+		
+		
 		
 DEDICATED VS SHARED SERVERS -->>
 	Dedicated servers -
@@ -2165,8 +2183,15 @@ DEDICATED VS SHARED SERVERS -->>
 		It provides scalability
 		Here first the user request is handled through Dispatcher process and is stored in the request & response queues. Then from that shared process performs its actions.
 		Nobody is using these servers nowadays.
-		In shared servers PGA contains only stack space and SGA contains User global areas. Both are in PGA in case of dedicated servers.
+		In shared servers PGA contains only stack space and SGA contains User global areas (UGA). Both are in PGA in case of dedicated servers.
 			So since I might be allocated to *any* process, I need somewhere where they can *all* see my current memory state (UGA). So it sits in the SGA.
+			
+		How I make it happen:
+			Update TNS entry to contain SHARED in server field instead of DEDICATED
+			alter system set dispatchers = '(PROTOCOL=TCP) (DISPATCHERS=4)';
+			alter system set shared_servers = 5;
+			ps -ef | egrep ora_d[0-9]{3}   -- in bash gives the total dispatchers running
+			ps -ef | egrep ora_s[0-9]{3}   -- in bash gives the total shared servers running
 		
 ORACLE INSTANCE -->>
 	Is loaded into the memory each time database starts (In memory nature)
@@ -2209,6 +2234,14 @@ SERVER PROCESSES (SPs) -->>
 	It's role -
 		verify the syntax of sql query that the user is trying to execute
 		it then read data from disk and also load it in the buffer cache
+		
+PARALLEL PROCESSES -->>
+	The execution of many SQL statements can be parallelized. 
+	The degree of parallelism is the number of parallel execution servers that can be associated with a single operation.
+	ps -ef | egrep ora_p[0-9]{3}   -- listing out the parallel servers running (after p009 it will be p00a)
+	parallel_min_servers -- displays the minimum parallel servers running
+	select * from v$px_process; -- table to display the parallel services running
+	select * from v$process; -- info about all currently active processes
 		
 		
 LOGICAL AND PHYSICAL DATA STRUCTURES -->>
@@ -2530,7 +2563,24 @@ DATABASE LINKS -->>
 		using 'tns_entry_name';  -- public database link, can be used by anybody on that database
 	We must have database backup before the time in which we are restoring the database
 		and the archived redo log for the period between the SCN of the backups and the target SCN (System Change Number)
-	
+
+
+TERMINATING SESSION -->>
+	When a session is terminated, any active transactions of the session are rolled back.
+	Resources held by the session (such as locks and memory areas) are immediately released and available to other sessions.
+	Useful
+		ALTER SYSTEM KILL SESSION '7,15'; -- 7=system identifier and 15=serial number
+		ALTER SYSTEM KILL SESSION '7,15' NOREPLAY; -- noreplay makes sure that the session won't be recovered again
+		DBMS_SERVICE.DISCONNECT_SESSION can also be used to terminate the session.
+			-- specify DBMS_SERVICE.NOREPLAY for the disconnect_option to make it unrecoverable
+			DEMO:
+				BEGIN
+					DBMS_SERVICE.DISCONNECT_SESSION(
+					service_name => 'sales.example.com',
+					disconnect_option => DBMS_SERVICE.NOREPLAY);
+				END;
+				/
+		select * from V$SESSION; -- provides session info (session is ACTIVE if it is making SQL calls)
 		
 DATA DICTIONARY -->>
 	----Check in basic section-----
@@ -3565,6 +3615,11 @@ DATA ENCRYPTION -->>
 				open restrict -
 					opens the database and restricts the access to only some users who have restricted session privilege with them
 					best to have this privilege with dba only
+				NOTE:
+					srvctl start database;
+					****Unable to retrieve Oracle Clusterware home.
+					Start Oracle Clusterware stack and try again.
+
 			shutdown
 				immediate -
 					terminate all executing sql query, and disconnects the user
@@ -3594,6 +3649,7 @@ DATA ENCRYPTION -->>
 				quiesce restricted
 					does not allow any non-dba connections
 					wait for any active session and once they became inactive the system is quiesced
+						VS in case of restriced session the active session won't get disabled automatically, manual task should be performed for this
 					session resumes once the system is unquiesced
 					SELECT ACTIVE_STATE FROM V$INSTANCE; -- view the state
 				unquiesce
@@ -3602,7 +3658,7 @@ DATA ENCRYPTION -->>
 				suspend
 					suspends a database by halting all input and output
 					preexisting operations are allowed to complete and any new database access are placed in queue state
-					if new instance is started then it won't be in suspended state beware of that
+					if new instance is started then it won't be in suspended state beware of that (in case of cluster environment)
 					can be used for copying the datafiles etc.
 					SELECT DATABASE_STATUS FROM V$INSTANCE; -- view the state
 				resume
