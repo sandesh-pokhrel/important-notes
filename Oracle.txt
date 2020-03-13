@@ -2638,6 +2638,8 @@ CONTROL FILE MANAGEMENT -->>
 	Every Oracle Database has a control file, which is a small binary file that records the physical structure of the database.
 	Without the control file, the database cannot be mounted and recovery is difficult.
 	specify control file names using the CONTROL_FILES initialization parameter 
+	Reading control file:
+		strings controlfile_name.extension -- use string to read binary file
 	Every Oracle Database should have at least two control files, each stored on a different physical disk
 		This is called control file multiplexing
 	It is important to backup control file whenever database structure changes
@@ -2680,6 +2682,11 @@ CONTROL FILE MANAGEMENT -->>
 			SELECT VALUE FROM V$PARAMETER WHERE NAME = 'control_files'; -- listing control files
 		If no such above list is present then
 			try to locate all datafiles and redo files that constitute the database
+		Backing up control file
+			ALTER DATABASE BACKUP CONTROLFILE TO '/oracle/backup/control.bkp'; -- backup control file to a binary file
+			ALTER DATABASE BACKUP CONTROLFILE TO TRACE; -- creates trace file which can be used to reproduce the control file later on
+				-- the location of trace file is mentioned in the alert log file
+				-- found in: /u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_19528.trc
 		During crash
 			Place all data files and redo log files in the desired location
 			Open database in NOMOUNT
@@ -2691,6 +2698,8 @@ CONTROL FILE MANAGEMENT -->>
 			Then open the database
 				ALTER DATABASE OPEN;
 				ALTER DATABASE OPEN RESETLOGS;
+			On restoring control file
+				https://web.stanford.edu/dept/itss/docs/oracle/10gR2/backup.102/b14191/osrecov005.htm
 			
 	
 	
