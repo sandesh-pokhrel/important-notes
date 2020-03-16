@@ -2695,14 +2695,30 @@ CONTROL FILE MANAGEMENT -->>
 			Edit CONTROL_FILES initalization param to indicate all of the control files
 			If new control file was create using RESETLOGS
 				must specify USING BACKUP CONTROL FILE -- recovers the lost online redo logs, archive redo log files, or data files
+				i.e, recover database using backup control file;
 			Then open the database
 				ALTER DATABASE OPEN;
 				ALTER DATABASE OPEN RESETLOGS;
 			On restoring control file
 				https://web.stanford.edu/dept/itss/docs/oracle/10gR2/backup.102/b14191/osrecov005.htm
-			
-	
-	
+	NOTE:
+		If all datafile is not mentioned in the control file and resetlogs is performed then the recovery is not possible
+		In that case the left datafile and tablespace needs to be dropped
+		If more datafile is mentioned in control file than in reality then that entry will be removed from the control: no problem
+		
+		
+REDO LOG MANAGEMENT -->>
+	The most crucial structure for recovery operations is the redo log
+	They are preallocated files that store all changes made to the database as they occur
+	Every instance of an Oracle Database has an associated redo log to protect the database in case of an instance failure
+	Redo Threads
+		When speaking in the context of multiple database instances, the redo log for each database instance is also referred to as a redo thread
+		In typical configurations, only one database instance accesses an Oracle Database, so only one thread is present
+		This way the contention is removed from the database
+	Redo Contents
+		These are the records or redo entries in the redo log files
+		
+		
 		
 DATA DICTIONARY -->>
 	----Check in basic section-----
@@ -2867,8 +2883,19 @@ POINT IN TIME RECOVERY (PITR) -->>
 				alter pluggable database demo_pdb open;  -- opening the pluggable database;
 				alter session set container=demo_pdb;
 				expdp system/sagarmatha@localhost:1521/demo_pdb directory=directory_name dumpfile=demo_full.dmp; -- export content of complete pdb
+				expdp sandesh/sandesh@orcl tables=EMP,DEPT directory=TEST_DIR dumpfile=EMP_DEPT.dmp logfile=expdpEMP_DEPT.log
+					-- exporting table only
+				expdp sandesh/sandesh@orcl schemas=SCOTT directory=TEST_DIR dumpfile=SCOTT.dmp logfile=expdpSCOTT.log
+					-- exporting whole schema
+				expdp system/sagarmatha@orcl full=Y directory=TEST_DIR dumpfile=DB10G.dmp logfile=expdpDB10G.log
+					-- full database export
+				
 			Import
 				The exported file does not depend upon the oracle version, once exported can be imported by any other system
+				impdp success/success directory=my_exp_dir dumpfile=sandesh_stu.dmp logfile=success_stu_imp.dmp remap_schema=sandesh:success;
+					-- this will work without specifying schemas or tables attribute; using remap_schema option
+				impdp sandesh/sandesh directory=my_exp_dir dumpfile=sandesh_stu.dmp logfile=sandesh_stu_imp.log tables=student table_exists_action=append;
+					-- table import with the action to append if exist
 				impdp system/sagarmatha@localhost:1521/orcl directory=my_exp_dir1 dumpfile=sandesh01.dmp logfile=sandesh01_IMPORT.log;
 					-- if the data already exist then it will throw the error stating data is already present
 				impdp system/sagarmatha@localhost:1521/orcl directory=my_exp_dir1 dumpfile=sandesh01.dmp logfile=sandesh01_IMPORT.log remap_schema=sandesh:success;
@@ -2880,6 +2907,7 @@ POINT IN TIME RECOVERY (PITR) -->>
 				impdp system/sagarmatha@localhost:1521/orcl directory=my_exp_dir1 dumpfile=sandesh01.dmp logfile=sandesh01_IMPORT.log remap_schema=sandesh:success
 					EXCLUDE=VIEW;
 					-- exclude view and import everything
+					
 			Advanced object filtering
 				expdp system/sagarmatha@localhost:1521/orcl schemas=sandesh dumpfile=mydump01.dmp directory=my_exp_dir1 logfile=mylog01.log
 					INCLUDE=TABLE:\""IN ('MY_FIRST_TABLE','ANOTHER_TABLE')\"", VIEW:\""IN ('MY_FIRST_VIEW')\"";
