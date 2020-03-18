@@ -2717,8 +2717,79 @@ REDO LOG MANAGEMENT -->>
 		This way the contention is removed from the database
 	Redo Contents
 		These are the records or redo entries in the redo log files
+		Redo entries record data that can be used to reconstruct all changes made to database including undo segments
+		Whenever commit is performed content from redo buffer is written to the redo log files and assigns a system change number (SCN) to identify the redo records
+	The redo log file that LGWR is actively writing to is called the current redo log file	
+	Redo log files that are required for instance recovery are called active redo log files
+	Redo log files that are no longer required for instance recovery are called inactive redo log files
+	Log switches and log sequence numbers
+		A log switch is the point at which the database stops writing to one redo log file and begins writing to another
+		It can be configured to occur at regular intervals
+		It can also be forced to happen manually
+			Configure ARCHIVE_LAG_TARGET to define when to switch and starts archival if mode is archivelog
+		Oracle Database assigns each redo log file a new log sequence number every time a log switch occurs
+	Planning redo logs
+		Multiplexing can be performed in redo log files, allowing two identical copies to be stored in separate locations
+		Multiplexing is implemented by creating groups of redo log files
+		Whenever LGWR cannot write to a member of a group, the database marks that member as INVALID
+			and writed error message to LGWR trace file and to database alert log
+		Planning block size of redo log files
+			Unlike the database block size, which can be between 2K and 32K, redo log files always default to a block size of physical sector size of disk
+			With higer block size there could be increased redo wastage
+			Useful
+				SELECT name, value FROM v$sysstat WHERE name = 'redo wastage';
+				select blocksize from v$log;
+			specify the block size of online redo log files with the BLOCKSIZE keyword in
+				CREATE DATABASE, ALTER DATABASE and CREATE CONTROLFILE statements
+		Useful
+			ALTER DATABASE orcl ADD LOGFILE
+				GROUP 4 ('/u01/logs/orcl/redo04a.log','/u01/logs/orcl/redo04b.log')
+				SIZE 100M BLOCKSIZE 512 REUSE; -- adds a new group 4 of redo logs to the database
+			ALTER DATABASE
+				ADD LOGFILE ('/oracle/dbs/log1c.rdo', '/oracle/dbs/log2c.rdo') SIZE 100M; -- adds a new group of redo logs to the database
+			ALTER DATABASE ADD LOGFILE MEMBER '/oracle/dbs/log2b.rdo' TO GROUP 2; -- add member to the group 2; size is determined by the existing member's size of that group
+			ALTER DATABASE ADD LOGFILE MEMBER '/oracle/dbs/log2c.rdo' TO ('/oracle/dbs/log2a.rdo', '/oracle/dbs/log2b.rdo'); -- add member to group by using other members of the group
+	Relocating and Renaming Redo log members
+		SHUTDOWN IMMEDIATE
+		move the redo logs
+			mv /diska/logs/log1a.rdo /diskc/logs/log1c.rdo
+			mv /diska/logs/log2a.rdo /diskc/logs/log2c.rdo
+		STARTUP MOUNT
+		Rename
+			ALTER DATABASE
+				RENAME FILE '/diska/logs/log1a.rdo', '/diska/logs/log2a.rdo'
+					TO '/diskc/logs/log1c.rdo', '/diskc/logs/log2c.rdo';
+	Dropping
+		Dropping group
+			Instance must require two groups of redo log files
+			Drop a redo log group only if it is inactive
+				if current group needs to be dropped then perform log switching first
+			SELECT GROUP#, ARCHIVED, STATUS FROM V$LOG;
+			ALTER DATABASE DROP LOGFILE GROUP 3;
+		Dropping members
+			An instance always require at least two valid groups of redo log files
+			A redo log file becomes INVALID if the db cannot access it
+			A redo log files becomes STALE if database suspects it is not complete or correct
+			Member can only be deleted if it is not the part of active or current redo logs
+			Make sure the group in which member belongs is archived
+			ALTER DATABASE DROP LOGFILE MEMBER '/oracle/dbs/log3c.rdo';
+	Forcing log switches
+		ALTER SYSTEM SWITCH LOGFILE;
+	Clearing a redo log file
+		A redo log file might become corrupted while the database is open, and ultimately stop database activity because archiving cannot continue
+		ALTER DATABASE CLEAR LOGFILE GROUP 3; -- clears log files in redo log group number 3
+		ALTER DATABASE CLEAR UNARCHIVED LOGFILE GROUP 3; -- clears redo log file and disallow archiving
+	Precedence of force logging settings
+		FORCE LOGGING and NOLOGGING can be set at various levels such as database, tablespace or database objects
+		When FORCE LOGGING  is made in the database level then it doesn't matter in what logging mode are tablespaces and database objects
 		
 		
+MANAGING ARCHIVED LOGS -->>
+	While in mount stage
+		ALTER DATABASE ARCHIVELOG; -- to archive log mode
+		ALTER DATABASE NOARCHIVELOG; -- to no archive log mode
+		ALTER DATABASE ARCHIVELOG MANUAL; -- archiving of inactive groups of filled redo log files must be done manually otherwise db will be suspended manually
+		ALTER SYSTEM ARCHIVE LOG ALL; -- manually archive filled redo log files while in manual mode
 		
 DATA DICTIONARY -->>
 	----Check in basic section-----
