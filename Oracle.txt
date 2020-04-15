@@ -379,6 +379,7 @@ PARTITIONING -->>
 		Interval Partitioning - 
 		Composite Partitioning - 
 		Automatic list Partitioning - 
+		--- THESE ARE ALL DISCUSSED DETAIL IN OPTIMIZATION SECTION ---
 		
 DIRECTORY -->>
 	create directory dir_name as 'location';
@@ -717,6 +718,11 @@ CONNECT BY CLAUSE -->>
 			-- i.e, 101 will have the level 1
 			
 VIEW -->>
+	A view is a logical representation of one or more tables
+	Unlike a table, a view is not allocated storage space
+	Operations performed on a view affect data in some base table of the view and are subject to the
+		integrity constraints and triggers of the base tables
+	A general rule is that an INSERT, UPDATE, or DELETE operation on a join view can modify only one base table at a time
 	Syntax 
 		Create view as select ................;
 		Create view as select ................ WITH READ ONLY; -- no dml can be performed
@@ -3075,9 +3081,10 @@ POINT IN TIME RECOVERY (PITR) -->>
 		
 	USER MANAGED BACKUPS
 		Manually copying oracle data files to a separate location
-		start by enabling the database online 'backup mode'   -- alter database start backup;
+		start by enabling the database online 'backup mode'   -- alter database begin backup;
 		finish by taking the database out of 'backup mode'		-- alter database end backup;
-			i)  Then perform copy commands and copy the required data files etc
+		select * from v$backup; -- check if backup is active or not
+		i)  Then perform copy commands and copy the required data files etc
 				If the storage device is enterprise level oracle filesystem then various useful operation are available like cloning etc.
 			ii) Now the backup of control files and archived logs.
 				control file backup ----  alter database backup controlfile to 'controlfile_backup_destination/control_file_backup.ctl'
@@ -3100,6 +3107,16 @@ POINT IN TIME RECOVERY (PITR) -->>
 		RMAN is used both for backup and the restoration
 		By default stored in fast recovery area
 		RMAN command line is used for everything instead of other hectic os commands.
+		RMAN copy only the used block in contrary with OS level commands
+			if the datafile is only one-third full then also the cp commands copy the entired file
+			RMAN copy only one-third of the total file
+		RMAN can detect if any block is corrupted in the database during backup and can fix the block
+		RMAN provides the concept of incremental backup which is extremely important feature
+		With RMAN we can validate the backup to make sure we can perform recovery with that backup
+		Parallelism is the feature of RMAN, with which we can accomplish the task in parallel
+		Recovery catalog can be utilized with RMAN which is very helpful for storing metadata instead using control files 
+		RMAN can only be used if it is at least in mount stage
+		Multi destination backup is possible by setting up the redundancy levels
 		Performs online database backup
 		Supports two types of backups - full and incremental backups
 			full - backing up everything
@@ -3131,15 +3148,29 @@ POINT IN TIME RECOVERY (PITR) -->>
 					CONFIGURE ARCHIVELOG DELETION POLICY TO NONE; # default
 					CONFIGURE SNAPSHOT CONTROLFILE NAME TO '/u01/app/oracle/product/12.2.0/dbhome_1/dbs/snapcf_orcl.f'; # default
 					
+				list backup; -- list all the backups
+				list backup summary; -- list all the backups in brief
+				list backup of database summary; -- list extremely less backup summary only of datafiles and the associated tag
+					-- list backup summary; will list individual tags of all archived, control files etc too
+				list backup of controlfile;
+					
 				command for manually configuring those params	
 					CONFIGURE RETENTION POLICY TO REDUNDANCY 1;
 					CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 7 DAYS;  -- retain backup for 7 days and delete older
 					
 				Useful	
+					backup database plus archivelog format '\location\%u'; -- %u denotes to use the same file name
+					backup incremental level 0 database plus archivelog; -- same as above but it is incremental backup
 					backup database plus archivelog;  -- instructs RMAN to take backup of everything
 					backup database tag 'DAILY_BACKUP' plus archivelog;  -- use tags to identify different backups
 					backup database root;  -- only backup the root (CDB), don't backup any PDBs
 					backup pluggable database plg_db_name;  -- only backup pluggable db with name plg_db_name
+					
+					restore controlfile from '/location.bkp';
+					restore database from tag=''; -- it restores using all incremental levels
+					recover database; -- it also applies archived logs
+					
+					
 					if connected to pluggable database
 						rman plg_db_name/password@service
 						backup database plus archivelog; -- will only backup the connected pdb
