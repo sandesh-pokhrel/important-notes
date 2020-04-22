@@ -972,10 +972,50 @@ IDENTIFIER -->>
 	Not case sensitive
 	Keywords are not allowed as identifiers
 	
+EXCEPTION -->>
+	Types
+		Program processing - If anything goes wrong in the program logic like divide by zero etc.
+		Internal oracle - These are internal oracle errors little hard to work on
+		User-Defined - These are declared and thrrown by users itself
+	About exceptions
+		If thrown will goes to exception
+		Catch block only catches the given type of exception declared
+		If catch if not present the it bubbles to the outer block, if not found then aborts
+	Declaring exceptions
+		ex_name exception; -- declared
+		PRAGMA EXCEPTION_INIT(ex_name, -20009); -- providing code to the ex declared (this can be omitted)
+			-- if this exeception name is provided with the oracle specified errors then oracle will use this name instead
+					eg; ORA-01476 is the exception for zero_divide
+					if we provide -01476 in pragma init then oracle will use our declared exception name
+	Throwing exceptions
+		raise ex_name;
+			OR
+		raise_application_error(-20009, 'This is the default error mesage for above declared exception');
+		raise_application_error(-20003, 'This is the default error mesage for an random undeclared exception');
+	Catching exceptions	
+		Single - Specified exceptions (when ex_name then ...)
+		Set - Set of exceptions caught (when ex_name_one OR ex_name_two then ...)
+		Global - in general catches all exceptions (when others then ...)
+	Error description
+		If exception has no system and user defined names then SQLCODE and SQLERRM will show descriptions
+	
 	
 CONTROL STRUCTURES -->>
 	Conditional - if-elsif if-else if-elsif-else.. end if;
-	Iterative - simple loop: (finite, infinite), while loop, for loop: (incremental, decremental)
+		case statements types
+			case selector
+				case 'jan'
+					when 'jan' then .....;
+					when 'feb' then ....;
+					else .....;  -- if else block is not present and no above conditions match then case_not_found ex thrown
+				end case;
+			case searched
+				case
+					when 'jan' = 'jan' then .....;
+					when 'jan' == 'feb' or ... and .... then .......;
+					else ....; -- case_not_found will be thrown same as above if no condition matches
+				end case;
+	Iterative - simple loop: (finite, infinite), while loop, for loop: (incremental i.e by default, decremental i.e reverse)
 	Sequential - goto, null
 	
 	Relational operators
@@ -1035,8 +1075,211 @@ OPERATORS -->>
 	=> association
 		-- exec proc_name(5); OR exec_proc_name(proc_arg => 5);
 		
+CURSORS -->>
+	A Cursor is a pointer to this context area
+	Oracle creates context area for processing an SQL statement which contains all information about the statement
+	PL/SQL allows the programmer to control the context area through the cursor
+	A cursor holds the rows returned by the SQL statement	
+	Types of cursor
+		Implicit cursor
+			Whenever any DML operations occur in the database, an implicit cursor is created that holds the rows affected
+			These cursors cannot be named and, hence they cannot be controlled or referred
+			We can refer only to the most recent cursor through the cursor attributes
+			Cursors and attributes are available inspite of the success or failure
+			Implicit cursor attributes (Name = SQL)
+				SQL%FOUND - Determines if the rows is affected by the current DML statement (returns T/F)
+				SQL%NOTFOUND - Logical opposite of above (returns T/F)
+				SQL%ROWCOUNT - Equals the number of rows affected by DML statement (returns integer)
+				SQL%ISOPEN - Indicates whether or not the cursor is open (returns T/F)
+		Explicit cursor
+			This cursor is explicitly defined by the users
+			All attributes in implicit curors are also applicable in explicit cursors
+			Steps
+				Define the cursor
+				Open the cursor
+				Fetch the data from cursor
+				close the cursor
+				
+			Usage
+				declare
+				  cursor cv_users is select username from users;
+				  v_username users.username%type;
+				begin
+				  open cv_users;
+				  loop
+					fetch cv_users into v_username;
+					exit when cv_users%notfound;
+					dbms_output.put_line('Username is: ' || v_username || ', Row count: ' || cv_users%rowcount);
+						-- rowcount changes moving from one row to another
+				  end loop;
+				  close cv_users;
+				end;
+				/
+				
+		Updatable Cursor
+			This is the another type of cursor which is handy in case of update
+			Cursor won't be always used for only select and display
+			If the whole value is to be updated from table then it is useful
+			Usage
+				declare
+				  cursor cv_users is select username from users for update of roles;
+				  v_username users.username%type;
+				begin
+				  open cv_users;
+				  loop
+					fetch cv_users into v_username;
+					exit when cv_users%notfound;
+					update users set roles = v_username || '_updated_roles_again' where current of cv_users;
+				  end loop;
+				  close cv_users;
+				end;
+				/
+				--Notice 'for update of roles' appended at the end of cursor declaration
+				--In update notice 'where current of cv_users', it guarantees only that row is updated
+				
+	Parametrized cursor
+		In this cursor we declare cursor with some parameter in it
+			In declare -
+			cursor cv_users (v_id number)  
+				is select username from users where id = v_id for update of roles; --for non-updateable too
+			In begin -
+			open cv_users(1); -- pass parameter while opening curosr
+			
+	For Loop cursor	
+		This cursor is very effective in terms of performance, readability and syntax
+		We donot need to use declare, open, fetch, exit and close
+		It will completely remove the burden of managing cursors
+		Usage
+			for user in (select * from users) loop
+				...............
+			end loop;
+			
+	Cursor variable
+		As opposed to the cursor, cursor variable holds the address to the select statement
+		This can be passed as an argument to the procedure function too
+		This can be declared in declare block without providing the select statement
+		It can represent different sql statement at different point in time
+		If used as a global variable in package then can be used by entire procs and functions in the package
+		Syntax	
+			type tv_users is ref cursor return users%rowtype; -- declare (strong) strong typed, knows what to deal with
+			type tv_users is ref cursor; -- declare (weak) can be used with anything, does not know what to deal with
+				-- fow weak cursor definition we donot even need to create the pointer to the cursor
+				-- instead or writing declaration and instantiation we can simply write
+					cv_users sys_refcursor;
+					i.e, instead of ( type tv_users is ref cursor; cv_users tv_users; )
+		Usage
+			declare
+			  type tv_users is ref cursor return users%rowtype; -- declare strong
+				<OR type tv_users is ref cursor;> -- this is weak declaration
+			  cv_users tv_users;
+				-- instead of declaring both tv_users and cv_users we can, cv_users sys_refcursor, this is weak declaration
+			  v_user users%rowtype;
+			begin
+			  open cv_users for select * from users; -- used once
+				-- OR <open cv_users for 'select * from users';> -- program won't complain if users table is not present
+				
+			  loop
+				fetch cv_users into v_user;
+				exit when cv_users%notfound;
+				dbms_output.put_line('Username: ' || v_user.username);
+			  end loop;
+			  if cv_users%isopen then
+				close cv_users;
+			  end if;
+			  
+			  open cv_users for select * from users where username = 'user'; -- used again
+			  ....
+			  .......
+			end;
+			/
+			
+	Cursor expression
+		Not all sql involves a single table but the combination of different
+		This is where the cursor expression comes into picture
+		Without using cursor expression
+			-- creating record which contains data to be fetched from all the tables
+			declare 
+			  type tv_rec_emp_dept is record 
+				(employee_id employees.employee_id%type,
+				 full_name varchar2(100),
+				 department_name departments.department_name%type);
+			  type tv_emp_dept is ref cursor  return tv_rec_emp_dept;
+			  cv_emp_dept tv_emp_dept;
+			  v_rec_emp_dept tv_rec_emp_dept;
+			begin
+			  open cv_emp_dept for select e.employee_id, e.first_name || ' ' || e.last_name, d.department_name
+				from employees e join departments d 
+				on e.department_id = d.department_id;
+			  loop
+				fetch cv_emp_dept into v_rec_emp_dept;
+				exit when cv_emp_dept%notfound;
+				dbms_output.put_line('Employee Id: ' || v_rec_emp_dept.employee_id);
+			  end loop;
+			end;
+			/
+			
+		With cursor expression
+			-- here department is fetched and then employee fetched belonging to those department
+			declare 
+			  type tv_emp is ref cursor;
+			  cursor cv_dept_emp is select d.department_name, 
+					cursor (select e.employee_id, e.first_name || ' ' || e.last_name
+				from employees e where e.department_id = d.department_id ) as emp
+				from departments d order by d.department_name asc;
+			  
+			  cv_emp tv_emp;
+			  v_emp_id employees.employee_id%type;
+			  v_full_name varchar2(100);
+			  v_dept_name departments.department_name%type;
+			  
+			begin
+			  open cv_dept_emp;
+			  loop
+				fetch cv_dept_emp into v_dept_name, cv_emp;
+				exit when cv_dept_emp%notfound;
+				dbms_output.put_line('--------------------' || v_dept_name || '----------------------');
+				loop
+				  fetch cv_emp into v_emp_id, v_full_name;
+				  exit when cv_emp%notfound;
+				  dbms_output.put_line('---' || v_emp_id || ' : ' || v_full_name);
+				end loop;
+			  end loop;
+			end;
+			/
 		
-SUBPROGRAMS -->>
+			
+SUB PROGRAMS -->>
+	Sub programs are similar to stored programs 
+	There are two types of sub programs - procedure and trigger
+	It is also somewhat different than anonymous blocks
+	These are not stored in the database server as like stored programs
+	They are also not executed automatically as nested block
+	We need to call the sub programs from our code
+	Usage	
+		declare
+			v_username users.username%type;
+			-- procedure declared
+			procedure display (message varchar2) is
+			begin
+			  dbms_output.put_line('Message: ' || message);
+			end display;
+			-- function declared
+			function fn_display (message varchar2) return varchar2 is
+			begin
+			  return 'Message: ' || message;
+			end fn_display;
+		begin
+		  select username into v_username from users where username = 'admin';
+		  display(v_username);
+		  dbms_output.put_line(fn_display(v_username));
+		end;
+		/
+			
+		
+STORED PROGRAMS -->>
+	For using authid current_user
+		grant execute on that proc, function or proc to other users
+		And for creating with authid current_user, inherit any privilege must be granted to that user
 	Two types
 		PROCEDURE
 			Mainly to perform an action
@@ -1050,6 +1293,7 @@ SUBPROGRAMS -->>
 			Return statement is optional in the body
 			
 			create or replace procedure p_name 
+			<authid current_user> -- default is definer, this means the proc will run with invoker privilege
 			is
 			........ (optional)
 			begin
@@ -1063,8 +1307,10 @@ SUBPROGRAMS -->>
 			Mainly to perform an calculations
 			Allows all DML + TCL statements
 			Accepts all modes of parameters
+			Make sure there are no OUT and IN OUT and no DMLs while calling from SELECT statement
 			
 			create or replace function f_name return number  --  return type can be anything 
+			<authid current_user> 
 			is
 			........ (optional)
 			begin
@@ -1074,6 +1320,30 @@ SUBPROGRAMS -->>
 			
 			exec dbms_output.put_line(f_name); OR exec dbms_output.put_line(f_name());
 			select f_name from dual;
+			
+		If procedure and functions gets invalid due to the change in its dependencies then recompile it
+			Oracle might recompile automatically
+			alter procedure proc_name compile;
+			alter function func_name compile;
+			OR from sys user -
+				begin
+					utl_recomp.recompile_parallel();
+				end;
+		If any error occurred in between execution then everything gets recomiled and session nullified 
+		Checking if valid or not
+			query USER_ERRORS data dictionary
+			command SHOW ERRORS; SHOW ERRORS FUNCTION fn_name; SHOW ERRORS PROCEDURE proc_name;
+			query USER_OBJECT_SIZE -- view sizes, error_size will be greater than 0 if any errors
+			query USER_SOURCE -- contains the all code
+			query USER_DEPENDENCIES -- list all the dependencies
+		To track dependencies properly better than user_dependencies run
+			utldtree.sql located at ORACLE_HOME/rdbms/admin
+			Running this for first time will create all necessary views and other objects
+			execute DEPTREE_FILL('function', 'sandesh', 'fn_dummy');
+				-- run this procedure eg: type: function, schema: sandesh, name: fn_dummy -- dislays all thing dependent on this function
+				-- eg: execute DEPTREE_FILL('table', 'sandesh', 'users'); -- displays all objects dependent on this table
+				-- this will fill the view ideptree
+			select * from ideptree; -- displays all dependencies
 			
 		PARAMETERS
 			IN -> Assignment cannot be performed with the parameter indicated as IN
@@ -1119,10 +1389,14 @@ PACKAGES -->>
 	Body can contain subprograms that is not declared in the spec, those subprograms are local and can only be utilized from within the package.
 	Package is a collection of subprograms (procedures + functions)
 	There can be zero subprograms in the package. This is like orphan package.Body is not required for this package.
+	OOP feature is also made available with package. Encapsulation, Polymorphism etc. can be achieved with packages
+	Polymorphism is also supported in the package. Can have procedures with same name but different parameters
 	
 	Usage
 		-- This is an orphan package. As no subprograms are declare it does not need a body.
-		create or replace package orphan_package is
+		create or replace package orphan_package 
+		<authid current_user>
+		is
 			v_num number := 10;
 			cursor c1 is select * from employees;
 		end orphan_package;
@@ -1174,6 +1448,11 @@ PACKAGES -->>
 
 		execute dbms_output.put_line ('Printing from function: ' || emp_package.func_in_package(:var_bind));
 		print :var_bind;
+		
+	Recompiling packages
+		alter package pkg_name compile; -- compile both body and spec
+		alter package pkg_name compile package; -- compile spec
+		alter package pkg_name compile body; -- compile body
 		
 TRIGGERS -->>
 	A trigger is a named PL/SQL block stored in the Oracle Database and executed automatically when a triggering event takes place
@@ -3161,6 +3440,7 @@ POINT IN TIME RECOVERY (PITR) -->>
 				Useful	
 					backup database plus archivelog format '\location\%u'; -- %u denotes to use the same file name
 					backup incremental level 0 database plus archivelog; -- same as above but it is incremental backup
+					backup incremental level 0 cumulative database plus archivelog; -- use cumulative approach instead of differential
 					backup database plus archivelog;  -- instructs RMAN to take backup of everything
 					backup database tag 'DAILY_BACKUP' plus archivelog;  -- use tags to identify different backups
 					backup database root;  -- only backup the root (CDB), don't backup any PDBs
@@ -3182,8 +3462,42 @@ POINT IN TIME RECOVERY (PITR) -->>
 							it takes more space than differential backup
 							it takes more time to execute
 							it should not analyze more backup sets
-		---STUDY RMAN AGAIN---					
-							
+		Setting RMAN catalog	
+			Useful -
+				Connect to the catalog database
+				create tablespace rcattbs datafile '/mnt/san_storage/oradata/xe/rcat01.dbf' size 300m;
+					-- tablespace to be used by catalog owner
+				create user rcat identified by rcat account unlock default tablespace rcattbs temporary tablespace temp quota unlimited on rcattbs;
+					-- user which will manage the catalog database
+				grant connect, resource, recovery_catalog_owner to rcat;
+					-- recovery_catalog_owner role make sure it can perform all actions required
+				rman catalog=rcat/rcat@xe/rcat; -- connect to rman as catalog
+					create catalog; -- creates all the tables, views required for catalog 
+				now connect to the target database
+					rman target / catalog rcat/rcat@xe; -- connect to target with catalog credential
+						register databse; -- for first time to register target to catalog
+						report schema; -- db structure will be displayed. won't work without registering to the catalog
+						
+		CLONING DATABASE WITHOUT RMAN
+			export ORACLE_SID=ORCL2
+			create initORCL2.ora with only one parameter db_name=ORCL2
+			create hot backup of ORCL , and don't forget log switch
+			create controlfile backup as trace too during backup
+			modify the controlfile to be suitable to the new ORCL2 database by modifiying name and location etc
+			place all those dbf files from backup to the new location for ORCL2
+			with pfile and control file in place we can now take database till mount stage
+				-- run that trace file in sqlplus with ORACLE_SID=ORCL2
+			now the recovery should be performed to take database in consistent state
+			set logsource='/location_of_ORCL_archived_log_location'; -- run this command in mounted ORCL2 database
+			recover database using backup controlfile until cancel;
+				-- use AUTO and at last CANCEL
+				-- or provide each required arc file and at end CANCEL
+			alter databse open resetlogs; -- database is ready
+			At this point initORCL2.ora is used instead of server parameter file
+				to use server parameter file instead of pfile
+				create spfile='location/spfileORCL2.ora' from <memory, pfile>; -- beware of capital ORCL2, this should be same as db_name in pfile
+				shutdown the database and restart. Now spfile will have precedence over pfile
+			
 							
 	ORACLE DATA PUMP						
 		Data pump is done using the utility 'expdp'
