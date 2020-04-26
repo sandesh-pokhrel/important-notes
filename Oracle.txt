@@ -1625,12 +1625,12 @@ TRIGGERS -->>
 			
 	Instead of Trigger
 		These triggers are only for the views, does not work on tables
-		This trigger also work either in statement or in row level
+		These trigger are automatically a row level trigger whether for each row is mentioned or not
 		Main usage of this trigger is to convert the action not permitted in view to redirect it to the base table
 		Usage
 			create or replace trigger insteadof_trigger
 			instead of insert on vw_students
-			for each row
+			for each row -- we can leave this too
 			begin
 				dbms_output.put_line('Instead oftrigger executing');
 				insert into students (roll, full_name, marks, remarks) values (1000, :new.full_name, :new.marks, :new.remarks);
@@ -1668,7 +1668,7 @@ TRIGGERS -->>
 					.....
 				if DELETING then
 					.....
-				if UPDATING then
+				if UPDATING then -- UPDATING ('COL1')
 					.....
 				end if;
 			end;
@@ -1686,15 +1686,113 @@ TRIGGERS -->>
 	Mutating Trigger
 		If the trigger body is selecting from the same table and try updating the same then the problem is called mutation
 		Try avoiding this the solution is also mentioned above
+		Occurs only in row level triggers
 		This can be avoided either using autonomous_transaction pragma in the trigger which will just create the separate transaction
+			This cannot solve the problem always as seperate transaction is started in trigger body and cannot interrupt the trigger
 		OR
 		Avoid performing the action that causes mutation
+		Problem
+			-- cause mutation. Here we are not allowing to have same roles more than 2 times during insertion
+			create or replace trigger tr_users
+			after insert on users
+			for each row
+			declare
+			  v_count number;
+			  v_roles users.roles%type;
+			begin
+			  v_roles := :new.roles;
+			  select count(*) into v_count from users where roles = v_roles;
+			  if v_count > 2 then
+				raise_application_error (-20001, 'Roles cannot exceed 2');
+			  end if;
+			end;
+			/
+		Using autonomous_transaction
+			-- this won't solve the problem as application error is thrown in different transaction
+			-- it cannot interrupt the insert statement that fired this trigger
+			create or replace trigger tr_users
+			after insert on users
+			for each row
+			declare
+			  v_count number;
+			  v_roles users.roles%type;
+			  pragma autonomous_transaction;
+			begin
+			  v_roles := :new.roles;
+			  select count(*) into v_count from users where roles = v_roles;
+			  if v_count > 2 then
+				raise_application_error (-20001, 'Roles cannot exceed 2');
+			  end if;
+			end;
+			/
+		Using compound trigger
+			-- this solves the problem
+			-- it firsts completes the row level trigger and then go for statement to verify and stop if necessary
+			create or replace trigger tr_users
+			for insert on users 
+			compound trigger
+			  v_roles users.roles%type;
+			  after each row is
+			  begin
+				v_roles := :new.roles;
+			  end after each row;
+
+			  after statement is
+				v_count number;
+			  begin
+				select count(*) into v_count from users where roles = v_roles;
+				if v_count > 2 then
+				  raise_application_error (-20001, 'Roles cannot exceed 2');
+				end if;
+			  end after statement;
+			end tr_users;
+			/
+			
+			-- another example
+			-- this both selects and performs update too
+			-- if the salary updated is more than 3 times the minumum salary then it 
+					updates the salary to the 3 times of minimum salary rather then the value in update statement
+			create or replace trigger tr_employee
+			for update of salary on employee
+			compound trigger
+			  type tv_emp is record (emp_id employee.emp_id%type, salary employee.salary%type);
+			  type tv_employees is table of tv_emp index by simple_integer;
+			  v_employees tv_employees; 
+			  
+			  after each row is
+			  begin
+				v_employees(v_employees.count+1).emp_id := :new.emp_id;
+				v_employees(v_employees.count).salary := :new.salary;
+			  end after each row;
+			  
+			  after statement is
+				v_salary_math number;
+			  begin
+				select min(salary) * 3 into v_salary_math from employee;
+				for indx in v_employees.first..v_employees.last loop
+				  if v_salary_math < v_employees(indx).salary then
+					update employee set salary = v_salary_math where emp_id = v_employees(indx).emp_id;
+				  end if;
+				end loop;
+			  end after statement;
+			end tr_employee;
+			/
 		
 	Compound Trigger
 		If there are multiple triggers for the same event, same level, same timing
 		In default the trigger will execute in the reverse order of their creation
 		To override the default scenario follows <trigger_name> is used during trigger creation to follow which trigger during execution
 		See the trigger syntax at the top to clarify the solution
+		
+	CALL statement in Trigger
+		With the call statement, we don't need to have body in the trigger
+		Trigger will call another procedure which acts as an body for the trigger
+		Due to this the spec and body remains somehow detached from one another
+		Syntax
+			create or replace trigger updt_fname_student_trigger
+			after update OR insert OR delete on students		-- specifies to work only for full_name in students table
+			for each row
+			call proc_name(:new.var_name, :new.another, :old.another_var ....);
 		
 			
 COLLECTIONS -->>
@@ -3405,9 +3503,19 @@ POINT IN TIME RECOVERY (PITR) -->>
 				level 1 - cumulative and deferential, two types
 		Backup made by RMAN is called backup set, and can only be restored using RMAN
 		Useful
+			http://www.juliandyke.com/Research/Research.php -- useful commands url
+			https://ittutorial.org/rman-backup-restore-and-recovery-tutorials-for-beginners-in-the-oracle-database/ -- good too
 			rman target=/; -- target = <sid> -- / = default instance
-			rman target=sys/sagarmatha@orcl
+			rman target=sys/sagarmatha@orcl;
+			rman target / catalog ...;
+			rman target / log 'location/name.log'; -- output will only be in log not in rman prompt
+			rman target / | tee 'location/name.log'; -- both in rman colsole and log
+			rman target / trace 'location/name.log'; -- output both in log and rman prompt
+			rman target / cmd 'location/name.cmd'; -- run all the rman commands on that file
+			rman target / catalog ... log 'locatin/name.log'
+			
 				now rman is opened like sqlplus RMAN>
+				select * from v$rman_configuration;
 				show all; -- show all the RMAN parameters -- its result are given below
 					using target database control file instead of recovery catalog
 					RMAN configuration parameters for database with db_unique_name ORCL are:
@@ -3427,41 +3535,132 @@ POINT IN TIME RECOVERY (PITR) -->>
 					CONFIGURE ARCHIVELOG DELETION POLICY TO NONE; # default
 					CONFIGURE SNAPSHOT CONTROLFILE NAME TO '/u01/app/oracle/product/12.2.0/dbhome_1/dbs/snapcf_orcl.f'; # default
 					
-				list backup; -- list all the backups
-				list backup summary; -- list all the backups in brief
-				list backup of database summary; -- list extremely less backup summary only of datafiles and the associated tag
-					-- list backup summary; will list individual tags of all archived, control files etc too
-				list backup of controlfile;
-					
-				command for manually configuring those params	
+				command for manually configuring those params
+					CONFIGURE CHANNEL DEVICE TYPE DISK FORMAT '/home/oracle/Backup/bkp_dbf_%u'; --set default format for db and arch
 					CONFIGURE RETENTION POLICY TO REDUNDANCY 1;
 					CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 7 DAYS;  -- retain backup for 7 days and delete older
+					CONFIGURE CHANNEL DEVICE TYPE DISK CLEAR; -- clear at the end unsets the value (default value)
+					CONFIGURE BACKUP OPTIMIZATION CLEAR; -- to default value
 					
-				Useful	
+				List database contents	
+					report schema; -- view all datafiles and tempfiles in the database
+					report obsolete;
+					report need backup;
+					list archivelog all; -- all arcivelogs in database
+					list datafilecopy all; -- list all data files copy made
+					list datafilecopy <key#>;
+					list datafilecopy <location_of_copy_not_the_db_datafile/datafile_name.dbf>;
+					list backupset <key>;
+					list copy of controlfile;
+					list controlfilecopy <key>;
+					list incarnation; -- 
+					
+				List backups	
+					list backup; -- list all the backups
+					list backup summary; -- list all the backups in brief
+					list backup of database;
+					list backup of database summary; -- list extremely less backup summary only of datafiles and the associated tag
+						-- list backup summary; will list individual tags of all archived, control files etc too
+					list backup of datafile <file#>;
+					list backup of datafile <file_name>;
+					list backup of tablespace <tbs_name>;
+					list backup of controlfile;
+					list backup of controlfile summary;
+					list backup of spfile;
+					list backup of spfile summary;
+					list backup of archivelog all;
+					list backup by file; -- categorized by files like arch, control, datafiles etc.
+					
+					list copy;	-- these are for image copies
+					list copy of database;
+					........
+					
+				Backup
+					backup database;
+					backup format '/u01/app/oracle/backup/%u' database;
+					backup database plus archivelog;  -- instructs RMAN to take backup of everything
+					backup database tag 'DAILY_BACKUP' plus archivelog;  -- use tags to identify different backups
 					backup database plus archivelog format '\location\%u'; -- %u denotes to use the same file name
 					backup incremental level 0 database plus archivelog; -- same as above but it is incremental backup
 					backup incremental level 0 cumulative database plus archivelog; -- use cumulative approach instead of differential
-					backup database plus archivelog;  -- instructs RMAN to take backup of everything
-					backup database tag 'DAILY_BACKUP' plus archivelog;  -- use tags to identify different backups
-					backup database root;  -- only backup the root (CDB), don't backup any PDBs
-					backup pluggable database plg_db_name;  -- only backup pluggable db with name plg_db_name
+					backup archivelog all;
+					backup archivelog all delete all input; -- backup and delete all archived logs
+					backup current controlfile;
+					backup spfile;
+					backup datafile '/u01/app/oradata/TEST/users01.dbf';
+					backup datafile 4; -- number can be found running report schema
+					backup tablespace users;
+					backup as compressed backupset database;
 					
+					backup as copy database; -- create bytes by bytes same copy of database
+					backp as copy datafile <name OF number>;
+					backup as copy datafile <location/name.dbf> format <location/name.dbf>
+					backup as copy controlfile;
+					
+					backup recovery area to destination '/u02/app/oracle'; -- backing up whole recovery area
+					
+					RUN
+					{
+					  ALLOCATE CHANNEL ch11 TYPE DISK MAXPIECESIZE 10G;
+					  BACKUP
+					  FORMAT '/u03/app/oracle/TEST/%d_D_%T_%u_s%s_p%p'
+					  DATABASE
+					  PLUS ARCHIVELOG
+					  FORMAT '/u03/app/oracle/TEST/%d_A_%T_%u_s%s_p%p';
+					  RELEASE CHANNEL ch11;
+					}
+					RUN
+					{
+					  ALLOCATE CHANNEL ch11 TYPE DISK MAXPIECESIZE 10G;
+					  BACKUP
+					  FORMAT '/u03/app/oracle/TEST/%d_D_%T_%u_s%s_p%p'
+					  DATABASE
+					  CURRENT CONTROLFILE
+					  FORMAT '/u03/app/oracle/TEST/%d_C_%T_%u'
+					  SPFILE
+					  FORMAT '/u03/app/oracle/TEST/%d_S_%T_%u'
+					  PLUS ARCHIVELOG
+					  FORMAT '/u03/app/oracle/TEST/%d_A_%T_%u_s%s_p%p';
+					  RELEASE CHANNEL ch11;
+					}
+					
+				Crosscheck
+					It compares the backup in disk with the list in controlfile or recovery catalog
+					crosscheck backup; -- crosscheck all backup (AVAILABLE,EXPIRED)
+						-- if removed from disk then also listed as EXPIRED
+					list expired backup;
+					delete expired backup;
+					crosscheck backupset;
+					list expired backupset;
+					delete expired backupset;
+					crosscheck copy; -- checking copy
+					list expired copy;
+					delete expired copy;
+					crosscheck archivelog all;
+					list expired archivelog all;
+					delete expired archivelog all;
+					crosscheck datafilecopy all;
+					list expired datafilecopy all;
+					delete expired datafilecopy all;
+					crosscheck backup of tablespace users;
+					list expired backup of tablespace users;
+					delete expired backup of tablespace users;
+					
+					
+				Restore
+					restore database preview; -- creates the preview of db restoration
+					restore database preview summary;
+					restore database;
+					restore database from tag=''; -- it restores using all incremental levels if incremental
+					restore datafile <key>;
+					restore datafile <location/name.dbf>;
 					restore controlfile from '/location.bkp';
-					restore database from tag=''; -- it restores using all incremental levels
-					recover database; -- it also applies archived logs
+					restore controlfile from autobackup;
 					
-					
-					if connected to pluggable database
-						rman plg_db_name/password@service
-						backup database plus archivelog; -- will only backup the connected pdb
-					Incremental
-						backup incremental level 0 database tag 'inc_level0' plus archivelog;
-						backup incremental level 1 database tag 'inc_level1' plus archivelog; -- least amount of data block backed up, differentiating
-						backup incremental level 1 cumulative database tag 'inc_level1' plus archivelog;
-							cumulative back ignores all other backups and only cares about last full backup
-							it takes more space than differential backup
-							it takes more time to execute
-							it should not analyze more backup sets
+				Recover
+					recover database;
+
+
 		Setting RMAN catalog	
 			Useful -
 				Connect to the catalog database
@@ -3476,7 +3675,16 @@ POINT IN TIME RECOVERY (PITR) -->>
 				now connect to the target database
 					rman target / catalog rcat/rcat@xe; -- connect to target with catalog credential
 						register databse; -- for first time to register target to catalog
-						report schema; -- db structure will be displayed. won't work without registering to the catalog
+			Commands
+				resync catalog;
+				upgrade catalog;
+					-- select * from rcver; view the catalog version
+				drop catalog;
+				unregister database;
+				virtual private catalog should be created inside catalog db to allow only particular db backup info is to be shown
+					i.e, if catalog storing backup info from multiple targets then showing about all db to one user might be bad
+					for this only show the backup of particular of db to the querying user
+					grant catalog for database ORCL to vpc; -- virtual private catalog
 						
 		CLONING DATABASE WITHOUT RMAN
 			export ORACLE_SID=ORCL2
@@ -3568,11 +3776,12 @@ POINT IN TIME RECOVERY (PITR) -->>
 				Uses data stored in undo tablespace so requires the proper undo retention policy
 				select * from student as of timestamp to_timestamp('13-DEC-19 02.28.32.771409000 PM'); -- data at time stamp before modification
 				create table old_student as select * from student as of timestamp to_timestamp('13-DEC-19 02.28.32.771409000 PM');  -- restoring old data
-				flashback table student to timestamp (systimestamp - interval '60' second);  
+				flashback table student to timestamp to_timestamp(systimestamp - interval '60' second);  
 					-- flashback table before 60 second
 					-- if row movement is not enabled then this query will throw error
 					alter table student enable row movement; -- altering student table to enable row movement
 						-- row id is not preserved by flashback query to enabling row movement in the table will solve this problem
+				flashback table tbl_name to before drop;
 			Flashback database
 				Uses flashback logs stored in FRA
 				To enable to flashback database
