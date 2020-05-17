@@ -605,6 +605,7 @@ EXTERNAL TABLES -->>
 TABLE LOCKS -->>
 	Types - DML, DDL, Internal
 	Shared locks are shared and can be acquired by multiple users at a time whereas exclusive locks can only be acquired by a single user
+	Once locked it can be removed by performing either commit or rollback
 	Important
 			S	X
 		S	yes yes
@@ -807,6 +808,118 @@ TYPE -->>
 		select t1_alias.id, t2_alias.column_value from tbl_varray t1_alias, table(t1_alias.varr_type) t2_alias;
 			-- use table keyword to find out the cartesian product of the id column and global_type_san column which contains multiple value
 					and can be considered as the table in itself
+
+ADVANCED SQL -->>
+	select * from user_tables;
+
+	--------- virtual, derived, unused, invisible demo-------------
+	drop table virtual_demo;
+	desc virtual_demo;
+	create table virtual_demo (id number, name varchar2(100), salary number, 
+	  commission generated always as (salary * 0.1) virtual);
+	select v.*, salary * 0.1 commission_derived from virtual_demo v;
+	insert into virtual_demo (id, name, salary) values (1, 'Sandesh', 20000);
+	alter table virtual_demo modify (commission invisible);
+	alter table virtual_demo modify (commission visible);
+	alter table virtual_demo set unused (commission);
+
+	------------- merge demo ----------------------
+	drop table merge_current;
+	select * from merge_current;
+	select * from merge_history;
+	create table merge_current (id number, gender char, name varchar2(100), address varchar2(100));
+	insert into merge_current 
+	  select level, decode(floor(dbms_random.value(1,3)), 1, 'M', 'F'), 
+	  'Name ' || level, 'Address ' || level from dual connect by level < 100; 
+	create table merge_history as select * from merge_current;
+	insert into merge_current values (100, 'M', 'Sandesh Pokhrel', 'Biratnagar');
+	update merge_current set name = 'Success Pokhrel', address = 'Kathmandu' where id = 99;
+	commit;
+
+	merge into merge_history a
+	using merge_current b
+	on (a.id = b.id and a.gender = b.gender)
+	when matched then
+	  update set name=b.name, address=b.address where a.id = b.id and a.gender = b.gender
+	  --delete where id=b.id and gender=b.gender
+	when not matched then
+	  insert values (b.id, b.gender, b.name, b.address);
+	commit;
+
+	------------------------ Analytical Functions ----------------------------
+	select first_name, last_name, employees.job_id, salary, avg_salary_by_job from employees,
+	(select job_id, avg(salary) avg_salary_by_job from employees group by job_id) emp_avg
+	where employees.job_id = emp_avg.job_id order by job_id;
+
+	select first_name, last_name, job_id, salary, 
+	sum(salary) over (partition by job_id order by job_id) avg_salary_by_job
+	from employees order by job_id;
+
+	select first_name, last_name, job_id, salary, 
+	sum(salary) over (order by first_name, last_name, job_id, salary ) cum_sum
+	from employees;
+
+	select job_id, sum(salary) sal_by_job, trunc(ratio_to_report (sum(salary)) over () * 100, 0) ratio_by_total
+	from employees group by job_id order by sal_by_job desc;
+
+	select job_id, department_id, sum(salary) sal_by_job, 
+	  trunc(ratio_to_report (sum(salary)) over (partition by department_id) * 100, 0) ratio_by_total
+	from employees group by department_id, job_id order by department_id, job_id;
+
+	select job_id, department_id, salary, 
+	  trunc(ratio_to_report (sum(salary)) over (partition by department_id) * 100, 0) ratio_by_total
+	from employees group by department_id, job_id, salary order by department_id, job_id;
+
+	select rownum, first_name, last_name, salary from employees 
+	order by salary desc nulls last
+	offset 1 rows fetch next 5 rows with ties;
+
+	select first_name, last_name, department_id, sum(salary) salary_sum,
+	rank () over (partition by department_id order by sum(salary) desc) rank_salary
+	from employees group by first_name, last_name, department_id order by department_id;
+
+	select first_name, last_name, department_id, sum(salary) salary_sum,
+	dense_rank () over (partition by department_id order by sum(salary) desc) rank_salary
+	from employees group by first_name, last_name, department_id order by department_id;
+
+	select first_name, last_name, department_id, sum(salary) salary_sum,
+	row_number () over (partition by department_id order by avg(salary) desc) rowid_salary
+	from employees group by first_name, last_name, department_id order by department_id;
+
+	select e.department_id, sum (salary),
+	ntile (4) over (order by sum (salary) desc) salary_band
+	from employees e, departments d
+	where e.department_id = d.department_id
+	group by e.department_id order by 3;
+
+	select department_id, sum (salary) sum_salary,
+	lead (sum(salary),1) over (order by department_id) lead_salary
+	from employees
+	where department_id is not null
+	group by department_id;
+
+	select department_id, sum (salary) sum_salary,
+	lag (sum(salary),1) over (order by sum(salary) desc) lead_salary
+	from employees
+	where department_id is not null
+	group by department_id;
+
+	select * from
+	(
+	select first_name, department_id, job_id, salary from employees
+	)
+	pivot (sum(salary) for (job_id) in ('IT_PROG', 'AD_VP')
+	)
+	order by department_id;
+
+	select department_id, 
+	  listagg(job_id, ', ') within group (order by job_id) as job_ids 
+	from employees group by department_id;
+
+
+
+
+
 
 		
 ------------------------------------------------------------ ORACLE PL/SQL -------------------------------------
@@ -4691,6 +4804,22 @@ DATA ENCRYPTION -->>
 		
 		
 ---------------------- USEFUL LINUX COMMANDS (CENTOS) --------------------------------	
+
+	Keygen related
+		keygen-ssh -t rsa -- will create public and private key in home folder .ssh
+			-- it also prompts for the location
+		ssh-copy-id -i <remote-host> -- this will add the public key in remote host .ssh/authorized_keys folder
+			-- after this it is done now try connecting
+		ssh <remote_host> -- it will ask for the passphrase everytin
+		-- to remove this headache of entering passphrase everytime
+		
+		eval $(ssh-agent) -- only for first time in terminal if the below command fails
+		ssh-add <Press Enter>
+			-- if eval already entered then it will ask for the passphrase otherwise error occurs
+			enter passphrase if asked
+		-- now done connect to the remote and passphrase won't be asked
+			
+		
 	
 	wget http://get.geo.opera.com/pub/opera/linux/1216/opera-12.16-1860.x86_64.rpm
 	lsnrctl status;	lsnrctl start;	lsnrctl stop;
