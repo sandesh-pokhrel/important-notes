@@ -3879,6 +3879,16 @@ POINT IN TIME RECOVERY (PITR) -->>
 			export ORACLE_SID=clonedb
 			create pfile using spfile from the prod database
 				edit the pfile parameter to match up the new clonedb parameters
+				add log_file_name_convert and db_file_name_convert for the ease
+				otherwise the new name should be provided in duplicate target database statement
+				
+				TO CLONE IN ASM FROM FILESYSTEM
+				
+				db_create_file_dest='+DATA'
+				log_file_name_convert and db_file_name_convert not required
+				db_recovery_file_dest='+FRA'
+				control_file='+DATA','+FRA'
+				
 			create password file
 			take the rman full backup of prod db
 			take the explicit backup of controlfile too, good to do so
@@ -3898,7 +3908,33 @@ POINT IN TIME RECOVERY (PITR) -->>
 					duplicate target database to 'clonedb';
 				}
 			the database is already opened in read write mode after this
+			FOR ASM
+				after all cloning is done
+				if the pfile is still being used from oracle home
+				create spfile='+DATA' from pfile;
+				the database needs to be add in the srvctl (close the database)
+					srvctl add database -d asmclone -oraclehome '/u01/app/oracle/product/12.2.0/db_1' 
+					-spfile '+DATA/ASMCLONE/PARAMETERFILE/spfile.286.1040648849' -instance asmclone 
+					-startoption open -stopoption immediate -dbname asmclone
+				(open the database using srvctl after this)
+				database can also be removed
+					srvctl remove database -db orcl -force -noprompt -verbose
 			
+		MOVING NON ASM DATABASE TO ASM
+			Make change in the parameter file using alter in open state spfile level
+				db_create_file_dest='+DATA'
+				control_file='+DATA','+FRA'
+				db_recovery_file_dest='+FRA'
+			shutdown immediate;
+			startup mount;
+			restore controlfile from '/mnt/san_storage/oradata/orcl/control01.ctl';
+			backup as copy database format '+DATA';
+			switch database to copy;
+			run {
+				set newname for tempfile '/mnt/san_storage/oradata/orcl/ORCL/temp01.dbf' to '+DATA';
+				switch tempfile all;
+			}
+			alter database open;
 			
 							
 	ORACLE DATA PUMP						
