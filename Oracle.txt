@@ -1089,7 +1089,7 @@ EXCEPTION -->>
 	Types
 		Program processing - If anything goes wrong in the program logic like divide by zero etc.
 		Internal oracle - These are internal oracle errors little hard to work on
-		User-Defined - These are declared and thrrown by users itself
+		User-Defined - These are declared and thrown by users itself
 	About exceptions
 		If thrown will goes to exception
 		Catch block only catches the given type of exception declared
