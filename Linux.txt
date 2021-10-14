@@ -1,0 +1,135 @@
+####### FILE SYSTEM
+	/boot --- used at first while booting the computer
+	/root --- root user home directory
+	/dev --- system devices like keyboard, usb, speakers, cdrom, disk etc..
+	/etc --- configuration files
+	/bin -> /usr/bin --- everyday user commands eg. ls, pwd etc..
+	/sbin -> /usr/sbin --- system/filesystem commands
+	/opt --- optional add-on applications (not part of OS apps)
+	/proc --- running process (only exist in memory)
+			when shutdown nothing will be inside /proc
+	/lib -> /usr/lib --- C programming library files needed by commands and apps
+				like while running ls, pwd command they look for the needed libraries in here
+				strace -e open ls --- runs the commands until stops 
+	/tmp --- directory for temporary files
+	/home --- directory for user
+	/var --- system logs, useful while troubleshooting
+	/run --- temporary run time files like PID
+	/mnt --- to mount external file systems
+	/media --- for cdrom mounts
+	
+	File types --- 
+		- --- regular file
+		d --- directory
+		l --- symbolic link
+		c --- peripherals linked
+	
+
+####### BASIC
+	echo, cat
+	ls ---- listing
+	ll --- long listing
+	pwd ---- current dir
+	cd ---- change
+	sudo -i --- switch to root user in ubuntu (zorin etc..)
+	cp, mv, mkdir, touch, rmdir, rm
+		touch abcd.txt
+		touch abcd{1..9}.txt
+		rm -rf abcd*
+		rm -rf abcd?.txt
+	env
+	tail file_name
+	head file_name
+	more file_name
+	less file_name
+	help commands
+		whatis java
+		java --help
+		man java
+	info
+		uname -a
+		hostname
+		history
+		whoami
+	hostname, whoami, whereis java, whatis java, which java, history, uname -a --- complete machine info, clear
+	ifconfig --- deprecated use ---  ip addr
+	find . -name "hello" --- find file named hello from current dir inwards 
+		this searches in whole filesystem to locate the file
+	locate hello --- locate the file named hello in file system
+			it uses inbuilt database so is fast
+			if db is not updated then won't give precise result
+			to update local database run command -- updatedb
+	links ---
+		links are like shortcuts in windows
+		soft link --- gets deleted if source file is renamed or removed
+				ln -s /home/sandesh/hello
+		hard link --- deleting or renaming source won't affect hard link
+				ln /home/sandesh
+				
+
+####### FILE PERMISSIONS
+	File and Directory Permissions (chmod)
+		3 types of permissions
+			r - read
+			w - write
+			x - execute
+		each permissions can be controlled from three levels
+			u - user = yourself
+			g - group
+			o - other
+		command to change permission
+			chmod g-w hello --- remove write from group similar for u and o
+			chmod a-r hello --- remove read from all i.e u, g and o
+			chmod a+x hello --- grant execute to all
+			chmod u+rw hello --- read write to user
+			chmod ug+r --- read to user and group
+		using numeric mode
+			0 - no permissions
+			1 - execute
+			2 - write
+			4 - read
+			chmod 700 hello --- grant all to user and none to other
+			chmod 764 --- all to u, rw to g, read to other
+	File Ownership permissions (chown, chgrp)
+		chown --- change the user ownership of the file
+		chgrp --- change the group ownership of the file
+		chown root hello --- set root as owner
+		chgrp root hello --- set root as group
+	Access Control List (ACL)
+		assign permission to random user or group
+		setfacl -m u:usr_name:rwx /path/filename --- to user usr_name
+		setfacl -m g:grp_name:rwx /path/filename --- to group grp_name
+		setfacl -x u:usr_name /path/filename --- revoke all for user
+		setfacl -b /path/filename --- remove all
+		
+
+
+####### GROUP AND USER MANAGEMENT
+passwd <username> --- change password for any user by root
+passwd --- change your password
+sudo groupadd docker --- add group named docker
+sudo gpasswd -a sandesh docker --- after adding user to docker group no need to write sudo
+		--- edit /etc/resolv.conf to change nameserver to 8.8.8.8 for the docker to resolve registry
+
+####### SERVICES RELATED
+sudo service docker <start, stop, restart, status>
+sudo systemctl <start, stop, restart, status> docker
+
+####### DISK RELATED
+df -h
+lsblk -f
+mount -t <auto,ntfs> /dev/sda1 /mnt/Hello
+mkfs -t ntfs /dev/sda1
+
+####### FILE RELATED
+/etc/resolv.conf -- DNS info
+/etc/fstab -- file system related like disk mounts etc.
+
+
+####### GIT TOKEN
+Access token - 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
+Provide above access token instead of the password
+
+####### SOUND RELATED ISSUE
+sound from both headphone and speakers
+	run in command - 'alsamixer' and then switch to enable

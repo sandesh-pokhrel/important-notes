@@ -1,0 +1,32 @@
+DOCKER INFO -->>
+	docker version
+	docker info
+	docker stats -- gives stats of all running containers
+	docker history <image_name>
+	docker system prune -- remove stopped containers, unused networks etc.
+	
+DOCKER RUN CONTAINER -->>
+	docker run <img_name> = docker create <img_name> + docker start -a <cont_id>
+	docker exec -it <cont_id> bash  -- attach shell to running container
+	docker container unpause <cont_id> -- resume the paused container
+	Options - 
+		--rm, -it
+		
+DOCKER STOP CONTAINER -->>
+	docker container pause <cont_id> -- pauses the container, won't take any more reqests
+	docker stop <cont_id> --gradually stop and clean up
+	docker kill <cont_id> --stop promptly
+	--rm flag while running will remove the container once finished
+		
+DOCKER BUILD IMAGES -->>	
+	docker image build -f Redis_Dockerfile -t custom-redis .
+		-----docker file sample for custom redis server
+		FROM alpine
+		RUN apk add --update redis
+		CMD ["redis-server"]
+		
+	building above image manually ---
+		run alpine image
+		install redis-server with apk inside alpine
+		save the container as an image
+			docker commit -c 'CMD ["redis-server"]' <container-id>
