@@ -26,7 +26,7 @@
 	
 
 ####### BASIC
-	echo, cat
+	echo, cat --- printing
 	ls ---- listing
 	ll --- long listing
 	pwd ---- current dir
@@ -153,12 +153,7 @@ mkfs -t ntfs /dev/sda1
 
 ####### FILE RELATED
 /etc/resolv.conf -- DNS info
-/etc/fstab -- file system related like disk mounts etc.
-
-
-####### GIT TOKEN
-Access token - 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
-Provide above access token instead of the password
+/etc/fstab -- file system related like disk mounts etc
 
 ####### SOUND RELATED ISSUE
 sound from both headphone and speakers
