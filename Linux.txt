@@ -91,6 +91,9 @@
 			echo "Hello:World" | awk -F : '{$2="Sandesh"; print $0}'
 			expolre this further more as it has lot of functionalities
 		grep/egrep --- prints the line for which the given pattern matches
+			grep sandesh <filename> --- prints line containing sandesh in file
+			cat hello.txt | grep sandesh
+			grep -c sandesh <filename> --- count word sandesh in file
 			
 				
 
@@ -154,7 +157,7 @@ mkfs -t ntfs /dev/sda1
 
 
 ####### GIT TOKEN
-Access token - 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
+Access token - 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
 Provide above access token instead of the password
 
 ####### SOUND RELATED ISSUE
