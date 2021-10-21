@@ -94,7 +94,17 @@
 			grep sandesh <filename> --- prints line containing sandesh in file
 			cat hello.txt | grep sandesh
 			grep -c sandesh <filename> --- count word sandesh in file
-			
+		diff --- similar to git. show the differences in files
+			diff <file1> <file2>
+		sort/uniq ---
+			sort <filename>
+			sort -k 2 <filename> --- sort by 2nd field seperated by space.
+				can specify delimeter as well
+			uniq <filename> --- show only unique characters
+		sed --- replace the text
+			sed 's/Hello/Hi/g' <filename> --- replaces all 'Hello' by 'Hi'
+			sed -i 's/Hello/Hi/g' <filename> --- replaces all 'Hello' by 'Hi' and write in file
+			sed '/Hello/d' <filename> --- delete 'Hello' in filename
 				
 
 ####### FILE PERMISSIONS
@@ -135,26 +145,46 @@
 
 
 ####### GROUP AND USER MANAGEMENT
-passwd <username> --- change password for any user by root
-passwd --- change your password
-sudo groupadd docker --- add group named docker
-sudo gpasswd -a sandesh docker --- after adding user to docker group no need to write sudo
-		--- edit /etc/resolv.conf to change nameserver to 8.8.8.8 for the docker to resolve registry
+	groupadd superheroes --- adds the group
+	groupdel superheroes --- deletes the group
+	cat /etc/group --- check the group
+	useradd spiderman --- adds the user spiderman
+	userdel <-r> spiderman -- deletes the user spiderman. -r to delete user's home folder as well
+	useradd -g superheroes -s /bin/bash -m -d /home/spiderman spiderman
+	id spiderman --- check if user exists
+	usermod -G superheroes spiderman --- add user spiderman to group superheroes
+	passwd <username> --- change password for any user by root
+	passwd --- change your password
+	sudo groupadd docker --- add group named docker
+	sudo gpasswd -a sandesh docker --- after adding user to docker group no need to write sudo
+			--- edit /etc/resolv.conf to change nameserver to 8.8.8.8 for the docker to resolve registry
+
 
 ####### SERVICES RELATED
-sudo service docker <start, stop, restart, status>
-sudo systemctl <start, stop, restart, status> docker
+	sudo service docker <start, stop, restart, status>
+	sudo systemctl <start, stop, restart, status> docker
 
 ####### DISK RELATED
-df -h
-lsblk -f
-mount -t <auto,ntfs> /dev/sda1 /mnt/Hello
-mkfs -t ntfs /dev/sda1
+	df -h
+	lsblk -f
+	mount -t <auto,ntfs> /dev/sda1 /mnt/Hello
+	mkfs -t ntfs /dev/sda1
 
 ####### FILE RELATED
-/etc/resolv.conf -- DNS info
-/etc/fstab -- file system related like disk mounts etc
+	/etc/sudoers --- sudoers users (visudo command also do the same)
+		instructions is printed in that file
+		for eg in debian ubuntu 
+		Members of the admin group may gain root privileges
+		Allow members of group sudo to execute any command
+	/etc/group --- groups
+	/etc/passwd --- users
+	/etc/resolv.conf -- DNS info
+	/etc/fstab -- file system related like disk mounts etc
 
 ####### SOUND RELATED ISSUE
-sound from both headphone and speakers
-	run in command - 'alsamixer' and then switch to enable
+	sound from both headphone and speakers
+		run in command - 'alsamixer' and then switch to enable
+		
+####### SYSTEM FIX
+	stuck in initfrms
+		fschk /dev/sdb1 -y --- fix the disk error issue in startup
