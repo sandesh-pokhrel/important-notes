@@ -142,8 +142,8 @@
 		setfacl -x u:usr_name /path/filename --- revoke all for user
 		setfacl -b /path/filename --- remove all
 		
-
-
+	
+	
 ####### GROUP AND USER MANAGEMENT
 	groupadd superheroes --- adds the group
 	groupdel superheroes --- deletes the group
@@ -160,9 +160,27 @@
 			--- edit /etc/resolv.conf to change nameserver to 8.8.8.8 for the docker to resolve registry
 
 
-####### SERVICES RELATED
-	sudo service docker <start, stop, restart, status>
-	sudo systemctl <start, stop, restart, status> docker
+####### SYSTEM RELATED
+	top --- list everything like memory, cpu, process etc.
+		press k or c and other similiar actions for interactive mode
+	htop --- similar to top
+	system monitor (GUI)
+	ps -aux --- list processes
+		ps -ef, ps -e
+	kill ufw --- ufw is the firewall service in ubuntu
+		kill firewalld
+		kill -1 firewalld --- restart the process
+		kill -9 firewalld --- forceful kill
+		kill -15 firewalld --- kill gracefully
+	crontab --- similar to task scheduler in windows
+		crond/<cron in ubuntu> --- this is the actual service like firewalld
+		crontab -l --- list all crontabs
+		crontab -e --- edit crontabs
+			--- open with nano by pressing 1
+				then it will show the format of entry
+	lsof --- list open files
+	sudo service docker <start, stop, restart, status>  --- deprecated, best to use systemctl
+	sudo systemctl <start, stop, restart, status, enable, disable> docker
 
 ####### DISK RELATED
 	df -h
@@ -179,7 +197,8 @@
 	/etc/group --- groups
 	/etc/passwd --- users
 	/etc/resolv.conf -- DNS info
-	/etc/fstab -- file system related like disk mounts etc
+	/etc/fstab --- file system related like disk mounts etc
+	/etc/os-release --- os info
 
 ####### SOUND RELATED ISSUE
 	sound from both headphone and speakers
@@ -188,3 +207,6 @@
 ####### SYSTEM FIX
 	stuck in initfrms
 		fschk /dev/sdb1 -y --- fix the disk error issue in startup
+		
+####### START TORRENT
+	utserver -settingspath /opt/utorrent-server-alpha-v3_3/ -daemon
