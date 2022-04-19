@@ -4,11 +4,34 @@ DOCKER INFO -->>
 	docker stats -- gives stats of all running containers
 	docker history <image_name>
 	docker system prune -- remove stopped containers, unused networks etc.
+	docker search mysql -- search for image mysql in docker hub
+	docker image history mysql -- all history layers used for building mysql image
+
+DOCKER BASIC -->>
+	docker image ls | docker images
+	docker container ls | docker ps | docker ps -a
+	
 	
 DOCKER RUN CONTAINER -->>
+	docker run -v $PWD:/app -w /app node node hello.js
+		-- console.log statement inside hello.js will be executed
+	docker run -v $(pwd):/hello -w /hello openjdk:11.0.10-buster javac Hello.java
 	docker run <img_name> = docker create <img_name> + docker start -a <cont_id>
+	docker run -d -p 80:80 -v /g/Project/Docker/web/:/usr/share/nginx/html:ro --name nginx nginx
+		- ro means read only, so we cannot change from inside the container
+		--  docker run -p 9999:80 -d --volumes-from nginx --name customnginx customnginx
+				-- run another container with the shared volume with above container name 'nginx'
+		--- Equivalent dockerfile
+					FROM nginx
+					LABEL maintainer="Sandesh Pokhrel"
+					WORKDIR /usr/share/nginx/html
+					COPY index.html .
+					RUN ["echo", "Container started"]
+				docker build -t customnginx .
+	docker start stopped_container_name
 	docker exec -it <cont_id> bash  -- attach shell to running container
 	docker container unpause <cont_id> -- resume the paused container
+	add --restart=always to docker run command for restarting the container when docker program restarts
 	Options - 
 		--rm, -it
 		
@@ -16,14 +39,26 @@ DOCKER STOP CONTAINER -->>
 	docker container pause <cont_id> -- pauses the container, won't take any more reqests
 	docker stop <cont_id> --gradually stop and clean up
 	docker kill <cont_id> --stop promptly
+	docker rm -f <cont-id> -- remove running containers forcefully
+	docker rm $(docker ps -aq) -- remove all the containers
 	--rm flag while running will remove the container once finished
+	docker rm -f $(docker ps -aq)
 		
 DOCKER BUILD IMAGES -->>	
+	Includes --
+		ADD - add from source to destination folder, url to dest folder and gip to dest folder automatically unzipping
+		COPY - only copy files from source to destination
+		FROM - from base image
+		LABEL - additional info like LABEL "maintainer":"Sandesh Pokhrel"
+		WORKDIR - WORKDIR /src automatically move to /src folder inside container
+		
 	docker image build -f Redis_Dockerfile -t custom-redis .
 		-----docker file sample for custom redis server
 		FROM alpine
 		RUN apk add --update redis
 		CMD ["redis-server"]
+	docker tag <image-name> userid/<some-name>
+	docker push userid/<some-name>
 		
 	building above image manually ---
 		run alpine image

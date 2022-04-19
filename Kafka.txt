@@ -1,0 +1,35 @@
+COMMANDS ---------
+
+# start zookeeper instance
+bin/windows/zookeeper-server-start.bat config/zookeeper.properties
+
+# start kafka server
+bin/windows/kafka-server-start.bat config/server.properties
+
+# create a topic
+bin/windows/kafka-topics.bat --create --topic quickstart-events --bootstrap-server localhost:9092
+
+# logs the usage information of the topic
+bin/windows/kafka-topics.bat --describe --topic quickstart-events --bootstrap-server localhost:9092
+
+# runs the consumer for the topic
+bin/windows/kafka-console-consumer.bat --topic quickstart-events --from-beginning --bootstrap-server localhost:9092
+
+# produce some messages
+bin/windows/kafka-console-producer.bat --topic quickstart-events --bootstrap-server localhost:9092
+
+
+UNDERSTANDING ---------------
+
+Brokers/Servers, Producers, and Consumers
+
+Brokers ---
+	i) Message retention can be configured (default is 7 days)
+		can be configured per topic basis
+		needs the proper storage space for message retention
+
+Consumer ---
+	i) Which consumes message from the topic
+	ii) Choose whether to consume from the beginning or from the end
+	iii) Consumer can also remember from where it wants to consume the message
+	
