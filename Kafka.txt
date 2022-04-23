@@ -1,4 +1,5 @@
 COMMANDS ---------
+ ( cd Softwares/kafka_2.12-2.8.0/)
 
 # start zookeeper instance
 bin/windows/zookeeper-server-start.bat config/zookeeper.properties
@@ -11,9 +12,14 @@ bin/windows/kafka-topics.bat --create --topic quickstart-events --bootstrap-serv
 
 # logs the usage information of the topic
 bin/windows/kafka-topics.bat --describe --topic quickstart-events --bootstrap-server localhost:9092
+bin/windows/kafka-topics.bat --zookeeper localhost:2181 --list
 
 # runs the consumer for the topic
 bin/windows/kafka-console-consumer.bat --topic quickstart-events --from-beginning --bootstrap-server localhost:9092
+
+# lists consumer group
+bin/windows/kafka-consumer-groups.bat --bootstrap-server localhost:9092 --list
+
 
 # produce some messages
 bin/windows/kafka-console-producer.bat --topic quickstart-events --bootstrap-server localhost:9092
@@ -23,13 +29,33 @@ UNDERSTANDING ---------------
 
 Brokers/Servers, Producers, and Consumers
 
+Zookeeper ---
+	i) Manages and monitors kafka brokers
+	ii) Installed by default
+
 Brokers ---
 	i) Message retention can be configured (default is 7 days)
 		can be configured per topic basis
 		needs the proper storage space for message retention
+		
+Topic ---
+	i) Certain number of partition and replication factor
+	ii) Producer produces to the topic and consumer consumes from it
+	iii) 
+
+Producers ---
+	i) Producer can produce messages to topic with certain key or not
+	ii) Producing messages with certain key insures consumer to read them in proper order
 
 Consumer ---
 	i) Which consumes message from the topic
-	ii) Choose whether to consume from the beginning or from the end
+	ii) Choose whether to consume from the beginning or latest or from some offset
+		-- some offset is useful when the consumer is down and wants to read messages after some point in time
 	iii) Consumer can also remember from where it wants to consume the message
+	iv) Consumer Groups
+		- what if consumer cannot read messages produced quickly
+		- events will not be like in realtime, might be some lag between produced and consumed
+		- consumer groups contains list of consumer which can read from certain partition
+		- group can be assigned to consumer for grouping
+		- if no group is provided then a new group is created for the consumer
 	
