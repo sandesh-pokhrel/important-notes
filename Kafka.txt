@@ -5,10 +5,12 @@ COMMANDS ---------
 bin/windows/zookeeper-server-start.bat config/zookeeper.properties
 
 # start kafka server
-bin/windows/kafka-server-start.bat config/server.properties
+bin/windows/kafka-server-start.bat co nfig/server.properties
 
 # create a topic
 bin/windows/kafka-topics.bat --create --topic quickstart-events --bootstrap-server localhost:9092
+bin/windows/kafka-topics.bat --create --topic test-topic --bootstrap-server localhost:9092 --replication-factor 1 --partitions 4
+
 
 # logs the usage information of the topic
 bin/windows/kafka-topics.bat --describe --topic quickstart-events --bootstrap-server localhost:9092
@@ -16,6 +18,7 @@ bin/windows/kafka-topics.bat --zookeeper localhost:2181 --list
 
 # runs the consumer for the topic
 bin/windows/kafka-console-consumer.bat --topic quickstart-events --from-beginning --bootstrap-server localhost:9092
+bin/windows/kafka-console-consumer.bat --topic test-topic --from-beginning --bootstrap-server localhost:9092 --group test-topic-group
 
 # lists consumer group
 bin/windows/kafka-consumer-groups.bat --bootstrap-server localhost:9092 --list
