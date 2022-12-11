@@ -1,0 +1,16 @@
+Commands -
+	Selections -------
+		kubectl get all
+		kubectl get deployment
+		kubectl get services
+		kubectl get pods
+		kubectl get replicasets
+	
+	Creation ---------
+		kubectl create deployment advdiscovery --image=jhipster/jhipster-registry:v7.3.0 --dry-run=client -o=yaml > advdiscovery-deployment.yml
+		kubectl apply -f advdiscovery-deployment.yml
+		kubectl create service clusterip advdiscovery --tcp=8761:8761 --dry-run=client -o=yaml > advdiscovery-service.yml
+		kubectl apply -f advdiscovery-service.yml
+	
+	Describe ---------
+		kubectl describe deployment/pod <name>

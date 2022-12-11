@@ -1,0 +1,73 @@
+Insert in cli using command redis-cli.
+USEFUL COMMANDS -->>
+	keys * -- check all keys
+	
+	-- FOR STRINGS
+		set name sandesh
+		get name
+		mset name sandesh age 27
+		mget name age
+		del name -- deletes the key name
+		flushall -- delete all the keys
+		strlen name -- len of value in name
+		getrange name 0 3 -- prints the substring of key name
+	
+	-- FOR LISTS
+		lpush dogs tommy -- lpush will push at the left/top
+		lpush dogs jack
+		lrange dogs 0 2
+		lrange dogs 0 -1 -- get all the data
+		rpush dogs jimmy -- rpush will push at the right/bottom
+		lset dogs 0 russel -- updates the item
+		linsert dogs before jack julie -- inserts julie before jack
+		lindex dogs 1 -- shows element at index 1
+		llen dogs
+		lpop dogs -- removes from the top/left
+		rpop dogs -- removes from the bottom/right
+	
+		lpushx movies avenger -- check if movies list exists then only add
+					-- lpush will create the list movies if does not exist
+		rpushx movies titanic -- similar as above
+		
+		sort dogs ALPHA -- sort asc
+		sort dogs desc ALPHA -- sort desc
+		
+	-- FOR SETS	
+		sadd country nepal
+		scard country -- counts elements in set
+		sdiff country nations -- checks the diff between two sets
+		smembers country -- lists all elements
+		spop country 3 -- pop 3 elements from the set 
+		
+	-- FOR SORTED SETS
+		zadd nations 2 germany 1 japan -- 1, 2 are cardinalities
+		zrange nations 0 -1 -- list all the members
+		zrange nations 0 -1 withscores -- print items and indexes
+		zcard nations -- counts item
+		zcount nations -inf +inf -- count everything
+		zcount nations 0 4 -- count from 0 to 4
+		zrevrange nations 0 -1 withsocres -- prints reverse values with scores
+		
+	-- HYPERLOGS
+		pfadd hlog a
+		pfadd hlog b c d e f g
+		pfcount hlog
+		pfadd hlog2 1 2 3 4
+		pfcount hlog2
+		pfcount hlog hlog2 -- count both hyperlogs
+		pfmerge hlog3 hlog hlog2 -- merges to hyperlogs and creates one
+		pfcount hlog3
+		
+	-- HASHES
+		hset myhash name sandesh
+		hset myhash email someemail
+		hvals myhash
+		hgetall myhash -- returns both keys and values
+		hexists myhash name
+		hlen myhash
+		hmset myhash age 27 hobby programming
+		hmget myhash name email age
+		hdel myhash age
+		hstrlen myhash name
+		hsetnx myhash name wontadd -- add only if value is unavailable
+		

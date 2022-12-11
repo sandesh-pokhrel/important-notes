@@ -1,0 +1,6 @@
+Ionic Angular
+	npm install -g @ionic/cli
+	ionic build -- creates the www folder, which will be used while generating android and ios build
+	npx/ionic cap add android -- adds android platform in application (android folder created)
+	npx/ionic cap open android -- opens android studio
+	

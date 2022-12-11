@@ -5,7 +5,7 @@ COMMANDS ---------
 bin/windows/zookeeper-server-start.bat config/zookeeper.properties
 
 # start kafka server
-bin/windows/kafka-server-start.bat co nfig/server.properties
+bin/windows/kafka-server-start.bat config/server.properties
 
 # create a topic
 bin/windows/kafka-topics.bat --create --topic quickstart-events --bootstrap-server localhost:9092
@@ -15,6 +15,7 @@ bin/windows/kafka-topics.bat --create --topic test-topic --bootstrap-server loca
 # logs the usage information of the topic
 bin/windows/kafka-topics.bat --describe --topic quickstart-events --bootstrap-server localhost:9092
 bin/windows/kafka-topics.bat --zookeeper localhost:2181 --list
+bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --list
 
 # runs the consumer for the topic
 bin/windows/kafka-console-consumer.bat --topic quickstart-events --from-beginning --bootstrap-server localhost:9092
@@ -62,3 +63,14 @@ Consumer ---
 		- group can be assigned to consumer for grouping
 		- if no group is provided then a new group is created for the consumer
 	
+
+
+Kafka linux
+	- curl -s -XGET http://localhost:8083/connector-plugins
+	- curl -s -XGET http://localhost:8083/connectors
+	- inside debezium script folder ./submit_debezium_config.sh
+	- docker exec -it kafka bash
+	- kafka-console-consumer --topic feeschedule --property schema.registry.url=http://localhost:8081 --bootstrap-server localhost:29092
+	- kafka-console-consumer --topic movies --property schema.registry.url=http://localhost:8081 --from-beginning --bootstrap-server localhost:29092
+	- kafka-topics --bootstrap-server localhost:29092 --list
+	- kafka-topics --zookeeper localhost:2181 --list
