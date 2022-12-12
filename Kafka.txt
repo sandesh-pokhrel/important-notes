@@ -1,5 +1,4 @@
 COMMANDS ---------
- ( cd Softwares/kafka_2.12-2.8.0/)
 
 # start zookeeper instance
 bin/windows/zookeeper-server-start.bat config/zookeeper.properties
