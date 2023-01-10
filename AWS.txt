@@ -1,0 +1,6 @@
+Region -------
+	geographical location
+	eg: us-east-1, ap-south-1
+Availability Zones --------
+	physical data centers inside the region
+	eg: us-east-1a, us-east-1b

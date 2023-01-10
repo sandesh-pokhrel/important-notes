@@ -65,3 +65,6 @@ DOCKER BUILD IMAGES -->>
 		install redis-server with apk inside alpine
 		save the container as an image
 			docker commit -c 'CMD ["redis-server"]' <container-id>
+
+DOCKER CLEAR IMAGES -->>
+	docker image prune --filter="dangling=true"

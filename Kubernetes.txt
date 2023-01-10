@@ -5,12 +5,37 @@ Commands -
 		kubectl get services
 		kubectl get pods
 		kubectl get replicasets
+		kubectl get pv --> persistent volume
+		kubectl get pvc --> persistent volume claim
 	
 	Creation ---------
 		kubectl create deployment advdiscovery --image=jhipster/jhipster-registry:v7.3.0 --dry-run=client -o=yaml > advdiscovery-deployment.yml
 		kubectl apply -f advdiscovery-deployment.yml
 		kubectl create service clusterip advdiscovery --tcp=8761:8761 --dry-run=client -o=yaml > advdiscovery-service.yml
 		kubectl apply -f advdiscovery-service.yml
+		
+		kubectl expose deployment advdiscovery --type=NodePort --name=advdiscovery
+		kubectl port-forward deployment/advdiscovery 8989:8761 -- port forwarding the nodeport port<8761> to localhost 8989
 	
 	Describe ---------
-		kubectl describe deployment/pod <name>
+		kubectl describe deployment/pod/pv/pvc/service <name>
+		
+	Logs ---------
+		kubectl logs <podname>
+		kubectl logs mysql-6db4f6c7d-rm4sb -n default -c mysql
+		
+	Deletion ------
+		kubectl delete pod <podname>
+		
+	Notes ----
+		pod is getting accessed using LoadBalancer service type
+		deployment is getting accessed using NodePort service type
+		
+		
+deployment and service - https://www.armosec.io/blog/kubernetes-deployment-and-service/
+
+service - https://kubernetes.io/docs/concepts/services-networking/service/#with-selectors
+
+volumes - https://kubernetes.io/docs/tutorials/stateful-application/mysql-wordpress-persistent-volume/
+
+regarding volume - https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/
