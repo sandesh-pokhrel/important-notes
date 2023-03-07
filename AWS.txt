@@ -4,3 +4,26 @@ Region -------
 Availability Zones --------
 	physical data centers inside the region
 	eg: us-east-1a, us-east-1b
+	
+AWS
+	aws configure -- for logging to aws from local
+					provide access key, secret key and all
+	aws sts get-caller-identity -- see the identity
+	
+	aws eks --region us-west-2 update-kubeconfig --name adv-eks-cluster -- adding new context to kubectl
+	
+	aws eks describe-cluster --name adv-eks-cluster --region us-west-2 --query cluster.resourcesVpcConfig
+	
+	./redis-cli -h adv-redis-cluster-ro.s2of81.ng.0001.usw2.cache.amazonaws.com -p 6379
+	
+	kubectl delete deployment advdiscovery advconfig advcache mysql advadjudication advgateway
+	
+	kubectl delete service advdiscovery advconfig advcache mysql advadjudication advgateway
+	
+	kubectl -n kube-system rollout restart deployment coredns -->> after adding node running this fixed the issue of pods communication
+	
+	
+	
+Redis Cluster
+
+http://aac0a8e2361b246f2bf699729408b4c4-976179756.us-west-2.elb.amazonaws.com:9411/zipkin/traces/b08757048938425b	

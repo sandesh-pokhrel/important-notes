@@ -7,6 +7,8 @@ Commands -
 		kubectl get replicasets
 		kubectl get pv --> persistent volume
 		kubectl get pvc --> persistent volume claim
+		
+		kubectl get pod -o wide
 	
 	Creation ---------
 		kubectl create deployment advdiscovery --image=jhipster/jhipster-registry:v7.3.0 --dry-run=client -o=yaml > advdiscovery-deployment.yml
@@ -26,10 +28,23 @@ Commands -
 		
 	Deletion ------
 		kubectl delete pod <podname>
+		kubectl delete all --all --all-namespaces
 		
 	Notes ----
 		pod is getting accessed using LoadBalancer service type
 		deployment is getting accessed using NodePort service type
+		
+	Contexts -----
+		kubectl config view -- check for current context
+		kubectl config get-contexts -- show contexts
+		kubectl config current-context -- show current context
+		
+	Labels ---
+		kubectl get nodes --show-labels
+		kubectl label nodes ip-172-31-24-159.us-west-2.compute.internal index=first
+		
+	Patching deployment ---
+		kubectl patch deployment your_deployment -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
 		
 		
 deployment and service - https://www.armosec.io/blog/kubernetes-deployment-and-service/
@@ -39,3 +54,49 @@ service - https://kubernetes.io/docs/concepts/services-networking/service/#with-
 volumes - https://kubernetes.io/docs/tutorials/stateful-application/mysql-wordpress-persistent-volume/
 
 regarding volume - https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/
+
+kubectl cheatsheet - https://kubernetes.io/docs/reference/kubectl/cheatsheet/
+
+eks steps - https://aws.amazon.com/premiumsupport/knowledge-center/eks-cluster-connection/
+
+eks docs - https://docs.aws.amazon.com/eks/latest/userguide/create-managed-node-group.html
+
+redis cluster - https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/GettingStarted.ConnectToCacheNode.html
+	-- install redis-cli to any aws machine
+	
+	sudo amazon-linux-extras install epel -y
+	sudo yum install gcc jemalloc-devel openssl-devel tcl tcl-devel -y
+	sudo wget http://download.redis.io/redis-stable.tar.gz
+	sudo tar xvzf redis-stable.tar.gz
+	cd redis-stable
+	sudo make ,,,,  BUILD_TLS=yes   -- apend this if encryption enabled
+	
+	./redis-stable/src/redis-cli -h adv-redis-cluster-ro.s2of81.ng.0001.usw2.cache.amazonaws.com -p 6379
+
+https://www.youtube.com/watch?v=aZd0UolVwD4
+https://www.youtube.com/watch?v=JscvSRcFbuA
+
+if kubernetes stuck then
+	Quit Docket Desktop
+	Delete the pki folder. Please find the folder in below path C:\Users\<User_Name>\AppData\Local\Docker\pki
+	Delete the ~\.kube folder. You can find the .kube in default user directory C:\Users\<User_Name>\.kube
+	Start the Docker again.
+	
+steps:
+	kubectl apply -f advdiscovery-deployment.yaml
+	kubectl apply -f advconfig-deployment.yaml
+	kubectl apply -f advcache-deployment.yaml
+	kubectl apply -f mysql-deployment.yaml
+	kubectl apply -f advgateway-deployment.yaml
+	kubectl apply -f advadjudication-deployment.yaml
+	
+	kubectl apply -f advdiscovery-service.yaml
+	kubectl apply -f advconfig-service.yaml
+	kubectl apply -f advcache-service.yaml
+	kubectl apply -f mysql-service.yaml
+	kubectl apply -f advgateway-service.yaml
+	kubectl apply -f advadjudication-service.yaml
+	
+	
+172.31.18.74:8761 - discovery
+	

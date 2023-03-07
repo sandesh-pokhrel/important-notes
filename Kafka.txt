@@ -69,6 +69,7 @@ Kafka linux
 	- curl -s -XGET http://localhost:8083/connectors
 	- inside debezium script folder ./submit_debezium_config.sh
 	- docker exec -it kafka bash
+	- kafka-console-producer --topic hobbit --bootstrap-server localhost:29092
 	- kafka-console-consumer --topic feeschedule --property schema.registry.url=http://localhost:8081 --bootstrap-server localhost:29092
 	- kafka-console-consumer --topic feeschedule --property schema.registry.url=http://localhost:8081 --from-beginning --bootstrap-server localhost:29092
 	- kafka-topics --bootstrap-server localhost:29092 --list
