@@ -71,7 +71,7 @@ redis cluster - https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/Gett
 	cd redis-stable
 	sudo make ,,,,  BUILD_TLS=yes   -- apend this if encryption enabled
 	
-	./redis-stable/src/redis-cli -h adv-redis-cluster-ro.s2of81.ng.0001.usw2.cache.amazonaws.com -p 6379
+	./redis-stable/src/redis-cli -h <> -p 6379
 
 https://www.youtube.com/watch?v=aZd0UolVwD4
 https://www.youtube.com/watch?v=JscvSRcFbuA

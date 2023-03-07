@@ -48,6 +48,7 @@ Commands ->
 	git shortlog -sne  -> summary, desc from num of commits, email
 	git show HEAD
 	git show HEAD~10   -> 10 step backward from the head commit
+	git update-index --assume-unchanged src/file/to/ignore   --- this will assume the file is unchanged
 	
 	NEED HELP->
 		git help <verb>
