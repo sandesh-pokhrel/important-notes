@@ -70,7 +70,9 @@ Kafka linux
 	- inside debezium script folder ./submit_debezium_config.sh
 	- docker exec -it kafka bash
 	- kafka-console-producer --topic hobbit --bootstrap-server localhost:29092
+	- kafka-console-consumer --topic temperature-output --bootstrap-server localhost:29092 -from-beginning --property print.key=true
 	- kafka-console-consumer --topic feeschedule --property schema.registry.url=http://localhost:8081 --bootstrap-server localhost:29092
+	- kafka-console-consumer --topic feeschedule --bootstrap-server localhost:29092
 	- kafka-console-consumer --topic feeschedule --property schema.registry.url=http://localhost:8081 --from-beginning --bootstrap-server localhost:29092
 	- kafka-topics --bootstrap-server localhost:29092 --list
 	- kafka-topics --zookeeper localhost:2181 --list

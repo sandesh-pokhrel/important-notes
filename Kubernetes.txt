@@ -1,12 +1,16 @@
 Commands -
+
 	Selections -------
 		kubectl get all
 		kubectl get deployment
 		kubectl get services
 		kubectl get pods
+		kubectl get pods -w -->> watches for the status and any other changes
+		kubectl get pods -o yaml 
 		kubectl get replicasets
 		kubectl get pv --> persistent volume
 		kubectl get pvc --> persistent volume claim
+		kubectl get storageclass -->> prints the default storage class in k8s cluster
 		
 		kubectl get pod -o wide
 	
@@ -18,9 +22,18 @@ Commands -
 		
 		kubectl expose deployment advdiscovery --type=NodePort --name=advdiscovery
 		kubectl port-forward deployment/advdiscovery 8989:8761 -- port forwarding the nodeport port<8761> to localhost 8989
+		
+		--dry-run flag in commands like create apply and others will show what will happens if we run that command
+			EG: kubectl create -f advdiscovery-deployment.yml --dry-run
 	
 	Describe ---------
 		kubectl describe deployment/pod/pv/pvc/service <name>
+		
+	Explain ------
+		kubectl explain pod --recursive -->> it will explain all configs related to pod
+		kubectl explain deployment
+		kubectl explain deployment.spec
+		kubectl explain deployment.spec.template
 		
 	Logs ---------
 		kubectl logs <podname>
@@ -38,13 +51,28 @@ Commands -
 		kubectl config view -- check for current context
 		kubectl config get-contexts -- show contexts
 		kubectl config current-context -- show current context
+		kubectl context set-context --current --namespace=test --> change current namespace
 		
 	Labels ---
 		kubectl get nodes --show-labels
 		kubectl label nodes ip-172-31-24-159.us-west-2.compute.internal index=first
 		
+	Other commands ---
+		kubectl api-resources -- show all components to use like pod,sevice,deployment
+		kubectl api-version
+		kubectl set env deploy/myapp ROOT_PASSWORD=SOMETHING -->> setting up env variable in running deployment .. will be considered as rolling update
+		kubectl set env --from=configmap/mycm deploy/myapp -->> setting env in deployment using config map
+		
 	Patching deployment ---
 		kubectl patch deployment your_deployment -p "{\"spec\": {\"template\": {\"metadata\": { \"labels\": {  \"redeploy\": \"$(date +%s)\"}}}}}"
+		
+	Init containers can also be specified in yaml file. The purpose of these are to make sure that certain things got completed.
+		in yaml -initContainers    similar to -containers
+		make sure these gets completed soon otherwise other container won't start and just stuck
+	Services 
+		ClusterIP - works internally inside the cluster
+		NodePort - can be accessed from outside
+			- with IP address of each node with nodePort the pod can be accessed
 		
 		
 deployment and service - https://www.armosec.io/blog/kubernetes-deployment-and-service/

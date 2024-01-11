@@ -22,3 +22,8 @@ AWS
 	
 	kubectl -n kube-system rollout restart deployment coredns -->> after adding node running this fixed the issue of pods communication
 	
+	
+	
+	
+
+	

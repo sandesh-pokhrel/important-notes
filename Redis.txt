@@ -39,7 +39,7 @@ USEFUL COMMANDS -->>
 		smembers country -- lists all elements
 		spop country 3 -- pop 3 elements from the set 
 		
-	-- FOR SORTED SETS
+	-- FOR SORTED SETSbd
 		zadd nations 2 germany 1 japan -- 1, 2 are cardinalities
 		zrange nations 0 -1 -- list all the members
 		zrange nations 0 -1 withscores -- print items and indexes
