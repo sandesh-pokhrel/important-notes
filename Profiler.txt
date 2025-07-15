@@ -1,0 +1,43 @@
+JCMD
+	- jcmd -- list all processed
+	- jcmd <pid> help
+	- jcmd <pid> JFR.check
+	- jcmd <pid> JFR.start name=adj_engine_qa 
+	- jcmd <pid> JFR.dump name=adj_engine_qa filename=/mnt/data/eng/engines/adjudication/QA/first.jfr
+	- jcmd <pid> JFR.stop name=adj_engine_qa
+	
+curl http://localhost:9998/adjudicateClaimKey/337681
+jcmd 12082 JFR.dump name=adj filename=/mnt/h/Advalent/Documents/jfr/first.jfr
+jcmd 12082 JFR.stop name=adj
+
+/mnt/data/eng/engines/adjudication/QA/jfr/report.jfr
+24871
+
+-XX:+FlightRecorder
+-XX:+UnlockCommercialFeatures
+-XX:+UnlockDiagnosticVMOptions
+-XX:+DebugNonSafepoints
+
+
+$ wget https://github.com/jvm-profiling-tools/async-profiler/releases/download/v1.7.1/async-profiler-1.7.1-linux-x64.tar.gz
+$ tar -zxf async-profiler-1.7.1-linux-x64.tar.gz
+
+ASYNC Profiler
+	- ./profiler.sh -o jfr -f filename.jfr start <pid>
+	- ./profiler.sh stop <pid>
+	
+https://git.eclipse.org/r/plugins/gitiles/rcptt/org.eclipse.rcptt/+/refs/changes/67/161567/5/async-profiler-1.7-macos-x64/README.md
+https://git.eclipse.org/r/c/rcptt/org.eclipse.rcptt/+/161567/5/async-profiler-1.7-linux-x64/README.md#123
+
+
+curl http://localhost:9810/adjudicateClaimsBulkReprocess/0
+
+NOTE: GRPC binary data transmission
+		
+		
+claimForAdjudication.getClaim().setContinueClaimProcessing(true);
+claimForAdjudication.getClaimLines().get(0).setContinueLineProcessing(true);
+
+https://springframework.guru/using-resttemplate-with-apaches-httpclient/
+
+just completed the unit testing by hitting one dummy endpoint with and without connection pooling in multithreaded environment simulating the multiple request scenario of spring boot and the improvement is noticeable.

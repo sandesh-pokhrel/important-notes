@@ -1,0 +1,16 @@
+https://www.youtube.com/watch?v=2o_3hjUPAfQ -- swagger realated , very nice channel explore
+https://www.youtube.com/watch?v=dkiJbJhNToA -- springDeveloper very detail (client first, server first generations explained)
+https://www.youtube.com/watch?v=otcYECeFS6Y -- actuator overall
+https://www.youtube.com/watch?v=B-ZZk4HZrfY&list=PLLMxXO6kMiNiwHCayWk74XynT5tvoMa4u&index=2 -- (micrometer) explore channel as well
+https://www.youtube.com/watch?v=ZwQ_OqH5WWA -- Josh long channel
+https://www.youtube.com/watch?v=iJ2muJniikY -- spring security
+https://www.youtube.com/watch?v=jB9kFj9BKtM -- Leetcode challenge run
+https://www.youtube.com/watch?v=1zSF1259s6w -- Async programming (venkat)
+https://www.youtube.com/watch?v=sf1vp-U9DYk -- test driven victor
+https://www.youtube.com/watch?v=0xsbf2SKYEg -- oauth
+https://www.youtube.com/watch?v=8PJUnnhLXiI&list=PLSVW22jAG8pBnhAdq9S8BpLnZ0_jVBj0c&index=4 -- spring overall microservices
+https://www.youtube.com/watch?v=EeQRAxXWDF4 -- 2 microservices long videos
+https://www.youtube.com/watch?v=5q4w-c2WUv0&list=PLuNxlOYbv61h66_QlcjCEkVAj6RdeplJJ&index=7 -- spring boot + k8s (explore channel)
+https://www.youtube.com/watch?v=mOLfjfPm8u8 -- best for TestJars (Josh long)
+https://www.youtube.com/watch?v=p3aLjH2VPzU -- auth server , resource servers with rabbitmq broker.. async communication with authorization
+https://www.youtube.com/watch?v=gvIqFDNGgwU&list=PLgGXSWYM2FpNRPDQnAGfAHxMl3zUG2Run -- graphql josh long series
