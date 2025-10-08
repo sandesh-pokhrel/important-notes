@@ -1,0 +1,121 @@
+-- Java ---->>>
+	Overloading vs Overriding
+		> why no multiple inheritance
+	Interface 
+		> default method
+		> abstract vs interface
+	Exception handling
+		> throw vs throws
+		> checked vs unchecked
+		> try with resources -- autocloseable
+	Multithreading
+		> how will you create thread ?
+		> executorsServices and completableFuture
+		> use case
+		> synchronization
+		> wait and sleep
+	streams
+		> parallel streams 
+		> flatmap
+		> reduce
+		> method references
+	generics
+	design patterns
+		- builder vs factory
+		- strategy pattern
+		- solid
+	immutable classes
+		- built in classes eg: String ,Wrapper classes, BigDecimal etc..
+		- string immutable and string builder mutable
+	collections
+		- hashmap vs hashtable
+		- is hashmap synchronized
+		- fail fast and fail safe -> fail safe - solves the issue of concurrent modification exception
+			eg . fail safe ConcurrentHashMap and CopyOnWriteArrayList
+	Questions -->>
+		- java passed by value or ref
+		- final , finally, finalize
+		- inner classes vs anonymous inner classes vs lambda
+		- dynamic method dispatch (also known as runtime polymorphism)
+		- java annotation processor
+	
+		
+-- Spring Boot ---->>>
+
+grpc , rmi , kafka	, webflux
+
+how do you dependency inject
+	why field level injection not recommended
+		- ans immutability , testing difficult, can't make sure all dependency are injected
+spring boot documentation
+java based config
+actuator
+	- custom metrics gauge, timer, counter, custom health
+profiles
+	- via props file, java classes
+rest controller same url
+override spring config
+hosting spring app
+
+JDBC
+	jdbc transactional
+	foreign key (many one)
+	hibernate 1st level and 2nd level cache
+	transaction read only
+	transaction propagation and isolation
+	entity graph
+	join fetch
+	
+	
+Authentication
+	authentication vs authorization
+	basic
+	form based
+	jwt authentication
+	security context holder
+	oauth2
+		resource owner vs client
+	password hashing using salt ??
+	security filter chain
+
+AOP
+	pointcut
+	joinpoints
+	advice
+	aspect
+
+maven
+	dependencyManagement, 
+	pluginManagement
+	scope
+	
+Exception Handling
+	checked, unchecked, throw, throws,
+	
+Microservices
+	domain driven design
+	bounded context
+	different important microservices
+	how to configure db
+	components -> service discovery , config server , api gateway, oauth
+	docker
+	kubernetes
+
+
+----- High Level ---
+
+Spring boot caching
+Inter service communication
+Perfomance issues
+	using actuator , splunk , metrics, profiler -> soln caching , scaling, database
+How does spring boot simplifies data access layer
+Conditional annotations
+how to handle -> multiple beans 
+multitenancy
+pom dep management , plugin management
+
+
+
+The candidate demonstrated not so bad understanding of core Java concepts, showing good problem-solving skills and familiarity with key Java features. However, their knowledge and experience with Spring Boot and AWS were less robust. They struggled to explain essential Spring Boot components and had limited familiarity with AWS services and best practices. Additional hands-on experience in these areas would strengthen their profile considerably.
+
+Overall, the candidate has potential, but further development in Spring Boot and AWS is recommended for this role.
